@@ -1,23 +1,73 @@
+// src/components/Header.tsx
 'use client'
 
 import React from 'react';
-import { PlusIcon } from './Icons';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Slash } from 'lucide-react';
+
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 
 const Header: React.FC = () => {
+  const pathname = usePathname();
+  const pathSegments = pathname.split('/').filter(segment => segment);
+
+  // Fungsi untuk membuat judul dari segmen terakhir URL
+  const generateTitle = () => {
+    if (pathname === '/') return 'Home';
+    const lastSegment = pathSegments[pathSegments.length - 1];
+    return lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1);
+  };
+
+  const title = generateTitle();
+
   return (
-    <div className="flex justify-between items-center">
-      <h1 className="text-4xl font-bold text-gray-800">Home</h1>
-      <div className="flex items-center space-x-2">
-        <button className="flex items-center bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-700">
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-          New Project
-        </button>
-        <button className="flex items-center bg-white border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50">
-           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-          New Task
-        </button>
+    <header className="flex justify-between items-center p-8 border-b border-gray-200/80 bg-gray-50/50 sticky top-0 z-10">
+      {/* Bagian Kiri: Breadcrumb Dinamis */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/">Home</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          {pathSegments.map((segment, index) => {
+            const href = `/${pathSegments.slice(0, index + 1).join('/')}`;
+            const isLast = index === pathSegments.length - 1;
+            const name = segment.charAt(0).toUpperCase() + segment.slice(1);
+
+            return (
+              <React.Fragment key={href}>
+                <BreadcrumbSeparator>
+                  <Slash />
+                </BreadcrumbSeparator>
+                <BreadcrumbItem>
+                  {isLast ? (
+                    <BreadcrumbPage>{name}</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink asChild>
+                      <Link href={href}>{name}</Link>
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+              </React.Fragment>
+            );
+          })}
+        </BreadcrumbList>
+      </Breadcrumb>
+
+      {/* Bagian Kanan: Judul Halaman dan Tombol Aksi */}
+      <div className="flex items-center space-x-4">
+        <h1 className="text-2xl font-bold text-gray-800">{title}</h1>
       </div>
-    </div>
+    </header>
   );
 };
 
