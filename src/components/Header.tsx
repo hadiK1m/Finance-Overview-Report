@@ -1,5 +1,5 @@
 // src/components/Header.tsx
-'use client'
+'use client';
 
 import React from 'react';
 import Link from 'next/link';
@@ -17,7 +17,7 @@ import {
 
 const Header: React.FC = () => {
   const pathname = usePathname();
-  const pathSegments = pathname.split('/').filter(segment => segment);
+  const pathSegments = pathname.split('/').filter((segment) => segment);
 
   // Fungsi untuk membuat judul dari segmen terakhir URL
   const generateTitle = () => {

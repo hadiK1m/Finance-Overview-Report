@@ -1,0 +1,70 @@
+// src/app/(dashboard)/balancesheet/page.tsx
+'use client';
+import * as React from 'react';
+import Header from '@/components/Header';
+import { columns, BalanceSheet } from './columns';
+import { DataTable } from '@/components/ui/data-table';
+import { AddBalanceSheetDialog } from './add-balancesheet-dialog';
+
+export default function BalanceSheetPage() {
+  const [data, setData] = React.useState<BalanceSheet[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const fetchSheets = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/balancesheet');
+      setData(await response.json());
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchSheets();
+  }, []);
+
+  const handleDelete = async (ids: number[]) => {
+    try {
+      await fetch('/api/balancesheet', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      // Refresh data setelah berhasil menghapus
+      await fetchSheets();
+    } catch (error) {
+      console.error('Failed to delete items:', error);
+    }
+  };
+
+  return (
+    <>
+      <Header />
+      <div className="p-8">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">
+              Cash & Balance
+            </h2>
+            <p className="text-muted-foreground">Manage your balance sheets.</p>
+          </div>
+          <AddBalanceSheetDialog onSheetAdded={fetchSheets} />
+        </div>
+        {loading ? (
+          <p>Loading...</p>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={data}
+            filterColumnPlaceholder="balance sheets..."
+            dateFilterColumnId="createdAt"
+            onDelete={handleDelete} // prop ini
+          />
+        )}
+      </div>
+    </>
+  );
+}

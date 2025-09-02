@@ -1,12 +1,29 @@
-'use client'
+'use client';
 
 import React from 'react';
 import type { StatCardProps } from '@/lib/data';
 import { TrendingUpIcon, TrendingDownIcon } from './Icons';
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, description, trend, trendDirection, icon }) => {
-  const trendColor = trendDirection === 'up' ? 'text-green-600' : trendDirection === 'down' ? 'text-red-600' : 'text-gray-600';
-  const TrendIcon = trendDirection === 'up' ? TrendingUpIcon : trendDirection === 'down' ? TrendingDownIcon : null;
+const StatCard: React.FC<StatCardProps> = ({
+  title,
+  value,
+  description,
+  trend,
+  trendDirection,
+  icon,
+}) => {
+  const trendColor =
+    trendDirection === 'up'
+      ? 'text-green-600'
+      : trendDirection === 'down'
+      ? 'text-red-600'
+      : 'text-gray-600';
+  const TrendIcon =
+    trendDirection === 'up'
+      ? TrendingUpIcon
+      : trendDirection === 'down'
+      ? TrendingDownIcon
+      : null;
 
   return (
     <div className="bg-white p-4 rounded-xl border border-gray-200/80 flex flex-col justify-between h-full hover:shadow-md transition-shadow duration-200">

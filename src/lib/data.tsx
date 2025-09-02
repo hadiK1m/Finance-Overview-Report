@@ -1,12 +1,12 @@
 // src/lib/data.tsx
 import React from 'react';
-import { 
-  CheckIcon, 
-  AlertTriangleIcon, 
-  TrendingUpIcon, 
-  BarChartIcon, 
-  ZapIcon, 
-  ActivityIcon 
+import {
+  CheckIcon,
+  AlertTriangleIcon,
+  TrendingUpIcon,
+  BarChartIcon,
+  ZapIcon,
+  ActivityIcon,
 } from '@/components/Icons';
 
 // --- Definisi Tipe ---
@@ -87,7 +87,11 @@ export const STATS_DATA: StatCardProps[] = [
   },
 ];
 
-const generateChartData = () => Array.from({ length: 15 }, (_, i) => ({ name: `Day ${i}`, value: Math.floor(Math.random() * 50) + 10 }));
+const generateChartData = () =>
+  Array.from({ length: 15 }, (_, i) => ({
+    name: `Day ${i}`,
+    value: Math.floor(Math.random() * 50) + 10,
+  }));
 
 // --- ISI KEMBALI DATA PROYEK DI SINI ---
 export const PROJECTS_DATA: ProjectCardProps[] = [
@@ -95,7 +99,8 @@ export const PROJECTS_DATA: ProjectCardProps[] = [
     priority: 'High',
     tags: ['QA', 'Audit'],
     title: 'Enable Real-Time Collaboration in Task View',
-    description: 'Allow multiple users to edit tasks simultaneously with live syncing and conflict resolution.',
+    description:
+      'Allow multiple users to edit tasks simultaneously with live syncing and conflict resolution.',
     chartData: generateChartData(),
     checklist: [
       { text: 'WebSocket service integrated and stable', completed: true },
@@ -111,7 +116,8 @@ export const PROJECTS_DATA: ProjectCardProps[] = [
     priority: 'Low',
     tags: ['Research', 'Audit'],
     title: 'Build Task Dependency Logic for Timeline View',
-    description: 'Allow users to set dependencies between tasks and visualize blocked or sequential workflows.',
+    description:
+      'Allow users to set dependencies between tasks and visualize blocked or sequential workflows.',
     chartData: generateChartData(),
     checklist: [
       { text: 'Blocked by and Depends on logic completed', completed: true },
@@ -127,7 +133,8 @@ export const PROJECTS_DATA: ProjectCardProps[] = [
     priority: 'Medium',
     tags: ['QA', 'Audit'],
     title: 'Improve Task Search Performance & Accuracy',
-    description: 'Optimize search response time and enhance fuzzy matching for task names and tags.',
+    description:
+      'Optimize search response time and enhance fuzzy matching for task names and tags.',
     chartData: generateChartData(),
     checklist: [
       { text: 'Switched to ElasticSearch backend', completed: true },
@@ -143,11 +150,15 @@ export const PROJECTS_DATA: ProjectCardProps[] = [
     priority: 'Medium',
     tags: ['UI design', 'Interaction'],
     title: 'Setup Slack Integration for Task Updates',
-    description: 'Allow teams to receive automated task activity alerts directly in Slack channels.',
+    description:
+      'Allow teams to receive automated task activity alerts directly in Slack channels.',
     chartData: generateChartData(),
     checklist: [
       { text: 'OAuth flow complete', completed: true },
-      { text: 'Supports task-created and status-change events', completed: false },
+      {
+        text: 'Supports task-created and status-change events',
+        completed: false,
+      },
       { text: 'Channel selection UI deployed', completed: false },
       { text: 'Next: Add user-level controls', completed: false },
     ],

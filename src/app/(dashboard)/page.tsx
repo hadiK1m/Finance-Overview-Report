@@ -20,7 +20,9 @@ export default function HomePage() {
         </div>
         <div className="mt-10">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-800">Ongoing Works</h2>
+            <h2 className="text-xl font-semibold text-gray-800">
+              Ongoing Works
+            </h2>
             <button className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900">
               <PlusIcon className="w-4 h-4" />
               New
