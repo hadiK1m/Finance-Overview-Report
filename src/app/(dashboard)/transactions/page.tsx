@@ -2,13 +2,24 @@
 'use client';
 import * as React from 'react';
 import Header from '@/components/Header';
-import { columns } from './columns';
+import { columns, TransactionWithRelations } from './columns';
 import { DataTable } from '@/components/ui/data-table';
 import { AddTransactionDialog } from './add-transaction-dialog';
+import { EditTransactionDialog } from './edit-transaction-dialog';
+import { UploadAttachmentDialog } from './upload-attachment-dialog'; // Impor dialog baru
 
 export default function TransactionsPage() {
-  const [data, setData] = React.useState([]);
+  const [data, setData] = React.useState<TransactionWithRelations[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+  const [selectedTransaction, setSelectedTransaction] =
+    React.useState<TransactionWithRelations | null>(null);
+
+  // === Tambahkan state untuk dialog upload attachment ===
+  const [isUploadAttachmentDialogOpen, setIsUploadAttachmentDialogOpen] =
+    React.useState(false);
+  const [transactionToUploadAttachment, setTransactionToUploadAttachment] =
+    React.useState<TransactionWithRelations | null>(null);
 
   const fetchTransactions = async () => {
     setLoading(true);
@@ -34,15 +45,24 @@ export default function TransactionsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids }),
       });
-
       if (!response.ok) {
         throw new Error('Failed to delete transactions');
       }
-
-      await fetchTransactions(); // Refresh data setelah berhasil
+      await fetchTransactions();
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const handleEdit = (transaction: TransactionWithRelations) => {
+    setSelectedTransaction(transaction);
+    setIsEditDialogOpen(true);
+  };
+
+  // === Handler untuk membuka dialog upload attachment ===
+  const handleUploadAttachment = (transaction: TransactionWithRelations) => {
+    setTransactionToUploadAttachment(transaction);
+    setIsUploadAttachmentDialogOpen(true);
   };
 
   return (
@@ -66,10 +86,27 @@ export default function TransactionsPage() {
             data={data}
             filterColumnPlaceholder="payee..."
             dateFilterColumnId="date"
-            onDelete={handleDelete} // Tambahkan prop ini
+            onDelete={handleDelete}
+            meta={{
+              onEdit: handleEdit,
+              onUploadAttachment: handleUploadAttachment, // Teruskan handler ke DataTable
+            }}
           />
         )}
       </div>
+      <EditTransactionDialog
+        transaction={selectedTransaction}
+        isOpen={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onTransactionUpdated={fetchTransactions}
+      />
+      {/* === Render dialog upload attachment === */}
+      <UploadAttachmentDialog
+        transaction={transactionToUploadAttachment}
+        isOpen={isUploadAttachmentDialogOpen}
+        onOpenChange={setIsUploadAttachmentDialogOpen}
+        onAttachmentUploaded={fetchTransactions}
+      />
     </>
   );
 }

@@ -2,7 +2,10 @@
 import * as z from 'zod';
 
 export const transactionFormSchema = z.object({
-  date: z.date({ required_error: 'A date is required.' }),
+  // PERBARUI BARIS DI BAWAH INI
+  date: z
+    .date()
+    .min(new Date('1900-01-01'), { message: 'A date is required.' }),
   item: z.string().min(1, { message: 'Please select an item.' }),
   rkapName: z.string().min(1, { message: 'Please select an RKAP Name.' }),
   payee: z.string().min(1, 'Payee is required.'),
@@ -16,7 +19,6 @@ export const transactionFormSchema = z.object({
 });
 
 export const apiTransactionSchema = transactionFormSchema.extend({
-  // API akan menerima tanggal sebagai string dan mengubahnya
   date: z.string().transform((str) => new Date(str)),
-  attachmentUrl: z.string().url().optional(),
+  attachmentUrl: z.string().optional(),
 });

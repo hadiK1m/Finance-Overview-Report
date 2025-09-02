@@ -2,7 +2,7 @@
 'use client';
 
 import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, ArrowUpDown, Paperclip } from 'lucide-react';
+import { MoreHorizontal, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -13,10 +13,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Transaction } from '@/lib/transaction-data';
 
-export const columns: ColumnDef<Transaction>[] = [
-  // KOLOM CHECKBOX DI SINI
+export type TransactionWithRelations = {
+  id: number;
+  date: string;
+  payee: string;
+  amount: number;
+  attachmentUrl: string | null;
+  createdAt: string;
+  categoryId: number;
+  itemId: number;
+  balanceSheetId: number | null;
+  category: { name: string } | null;
+  item: { name: string } | null;
+  balanceSheet: { name: string } | null;
+};
+
+export const columns: ColumnDef<TransactionWithRelations>[] = [
   {
     id: 'select',
     header: ({ table }) => (
@@ -68,26 +81,63 @@ export const columns: ColumnDef<Transaction>[] = [
         currency: 'IDR',
         minimumFractionDigits: 0,
       }).format(amount);
-      return <div className="text-right font-medium">{formatted}</div>;
+      return (
+        <div
+          className={`text-right font-medium ${
+            amount < 0 ? 'text-red-600' : 'text-green-600'
+          }`}
+        >
+          {formatted}
+        </div>
+      );
     },
   },
   {
-    accessorKey: 'balanceSheet.name', // Akses nama dari relasi
+    accessorKey: 'balanceSheet.name',
     header: 'Balance Sheet',
   },
   {
-    accessorKey: 'hasAttachment',
+    accessorKey: 'attachmentUrl',
     header: 'Attachment',
-    cell: ({ row }) => {
-      return row.getValue('hasAttachment') ? (
-        <Paperclip className="h-4 w-4 text-gray-500" />
-      ) : null;
+    cell: ({ row, table }) => {
+      const url = row.getValue('attachmentUrl') as string | null;
+      const transaction = row.original;
+      const { onUploadAttachment } = (table.options.meta as any) || {};
+
+      if (url) {
+        // Jika URL ada, tampilkan "Sudah PJ" dengan ikon biru
+        return (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center text-blue-600 hover:underline"
+          >
+            <Paperclip className="h-4 w-4 mr-1" />
+            Sudah PJ
+          </a>
+        );
+      }
+
+      // Jika tidak ada URL, tampilkan "Belum PJ" dengan ikon merah yang bisa diklik
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-auto px-2 py-1 text-red-600 hover:text-red-700"
+          onClick={() => onUploadAttachment?.(transaction)}
+        >
+          <Paperclip className="h-4 w-4 mr-1 text-red-500" />
+          Belum PJ
+        </Button>
+      );
     },
   },
   {
     id: 'actions',
-    cell: ({ row }) => {
+    cell: ({ row, table }) => {
       const transaction = row.original;
+      const { onEdit, onUploadAttachment } = (table.options.meta as any) || {};
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -99,13 +149,33 @@ export const columns: ColumnDef<Transaction>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(transaction.id)}
+              onClick={() =>
+                navigator.clipboard.writeText(String(transaction.id))
+              }
             >
               Copy transaction ID
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>View details</DropdownMenuItem>
-            <DropdownMenuItem>Download attachment</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEdit?.(transaction)}>
+              Edit transaction
+            </DropdownMenuItem>
+            {transaction.attachmentUrl ? (
+              <DropdownMenuItem asChild>
+                <a
+                  href={transaction.attachmentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Download attachment
+                </a>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={() => onUploadAttachment?.(transaction)}
+              >
+                Upload attachment
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       );

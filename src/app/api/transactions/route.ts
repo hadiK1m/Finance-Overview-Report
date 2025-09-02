@@ -1,10 +1,10 @@
 // src/app/api/transactions/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { transactions } from '@/lib/db/schema';
+import { transactions, balanceSheet } from '@/lib/db/schema';
 import { apiTransactionSchema } from '@/lib/schemas';
 import * as z from 'zod';
-import { inArray } from 'drizzle-orm';
+import { inArray, eq, sql } from 'drizzle-orm';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 
@@ -34,21 +34,31 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const parsedData = apiTransactionSchema.parse(body);
+    const { amount, balanceSheetId, ...values } = parsedData;
 
-    const newTransaction = await db
-      .insert(transactions)
-      .values({
-        date: parsedData.date,
-        categoryId: Number(parsedData.rkapName),
-        itemId: Number(parsedData.item),
-        payee: parsedData.payee,
-        amount: parsedData.amount,
-        balanceSheetId: Number(parsedData.balanceSheetId),
-        attachmentUrl: parsedData.attachmentUrl,
-      })
-      .returning();
+    await db.transaction(async (tx) => {
+      // 1. Masukkan transaksi baru
+      await tx.insert(transactions).values({
+        date: values.date,
+        categoryId: Number(values.rkapName),
+        itemId: Number(values.item),
+        payee: values.payee,
+        amount: amount,
+        balanceSheetId: Number(balanceSheetId),
+        attachmentUrl: values.attachmentUrl,
+      });
 
-    return NextResponse.json(newTransaction[0], { status: 201 });
+      // 2. Perbarui saldo di balance_sheet
+      await tx
+        .update(balanceSheet)
+        .set({ balance: sql`${balanceSheet.balance} + ${amount}` })
+        .where(eq(balanceSheet.id, Number(balanceSheetId)));
+    });
+
+    return NextResponse.json(
+      { message: 'Transaction created successfully' },
+      { status: 201 }
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -82,29 +92,36 @@ export async function DELETE(request: Request) {
 
     const transactionsToDelete = await db.query.transactions.findMany({
       where: inArray(transactions.id, ids),
-      columns: {
-        attachmentUrl: true,
-      },
     });
 
-    for (const transaction of transactionsToDelete) {
-      if (transaction.attachmentUrl) {
-        try {
-          const filePath = join(
-            process.cwd(),
-            'public',
-            transaction.attachmentUrl
-          );
-          await unlink(filePath);
-        } catch (fileError) {
-          console.warn(
-            `File not found or could not be deleted: ${transaction.attachmentUrl}`
-          );
+    await db.transaction(async (tx) => {
+      for (const transaction of transactionsToDelete) {
+        // Kembalikan saldo (mengurangi amount akan menambahkan nilai jika negatif)
+        if (transaction.balanceSheetId) {
+          await tx
+            .update(balanceSheet)
+            .set({
+              balance: sql`${balanceSheet.balance} - ${transaction.amount}`,
+            })
+            .where(eq(balanceSheet.id, transaction.balanceSheetId));
+        }
+        if (transaction.attachmentUrl) {
+          try {
+            const filePath = join(
+              process.cwd(),
+              'public',
+              transaction.attachmentUrl
+            );
+            await unlink(filePath);
+          } catch (fileError) {
+            console.warn(
+              `File not found or could not be deleted: ${transaction.attachmentUrl}`
+            );
+          }
         }
       }
-    }
-
-    await db.delete(transactions).where(inArray(transactions.id, ids));
+      await tx.delete(transactions).where(inArray(transactions.id, ids));
+    });
 
     return NextResponse.json(
       { message: 'Transactions deleted successfully.' },
@@ -120,6 +137,79 @@ export async function DELETE(request: Request) {
     console.error('API DELETE Error (transactions):', error);
     return NextResponse.json(
       { message: 'Failed to delete transactions.' },
+      { status: 500 }
+    );
+  }
+}
+
+// Handler untuk PATCH (mengedit transaksi)
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, ...valuesToUpdate } = apiTransactionSchema
+      .extend({ id: z.number() })
+      .parse(body);
+
+    await db.transaction(async (tx) => {
+      const originalTransaction = await tx.query.transactions.findFirst({
+        where: eq(transactions.id, id),
+      });
+
+      if (!originalTransaction) {
+        throw new Error('Transaction not found');
+      }
+
+      // Kembalikan saldo lama dari balance sheet yang lama
+      if (originalTransaction.balanceSheetId) {
+        await tx
+          .update(balanceSheet)
+          .set({
+            balance: sql`${balanceSheet.balance} - ${originalTransaction.amount}`,
+          })
+          .where(eq(balanceSheet.id, originalTransaction.balanceSheetId));
+      }
+
+      // Tambahkan saldo baru ke balance sheet yang baru
+      const newBalanceSheetId = Number(valuesToUpdate.balanceSheetId);
+      await tx
+        .update(balanceSheet)
+        .set({
+          balance: sql`${balanceSheet.balance} + ${valuesToUpdate.amount}`,
+        })
+        .where(eq(balanceSheet.id, newBalanceSheetId));
+
+      // Perbarui data transaksi itu sendiri, termasuk attachmentUrl
+      await tx
+        .update(transactions)
+        .set({
+          date: valuesToUpdate.date,
+          categoryId: Number(valuesToUpdate.rkapName),
+          itemId: Number(valuesToUpdate.item),
+          payee: valuesToUpdate.payee,
+          amount: valuesToUpdate.amount,
+          balanceSheetId: newBalanceSheetId,
+          attachmentUrl: valuesToUpdate.attachmentUrl,
+        })
+        .where(eq(transactions.id, id));
+    });
+
+    return NextResponse.json(
+      { message: 'Transaction updated successfully.' },
+      { status: 200 }
+    );
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          message: 'Validation failed',
+          errors: error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+    console.error('API PATCH Error (transactions):', error);
+    return NextResponse.json(
+      { message: 'Failed to update transaction.' },
       { status: 500 }
     );
   }

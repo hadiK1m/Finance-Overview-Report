@@ -48,6 +48,7 @@ interface DataTableProps<TData, TValue> {
   filterColumnPlaceholder: string; // Ubah prop ini
   dateFilterColumnId: string;
   onDelete?: (selectedIds: number[]) => Promise<void>;
+  meta?: any;
 }
 
 export function DataTable<TData, TValue>({
@@ -56,6 +57,7 @@ export function DataTable<TData, TValue>({
   filterColumnPlaceholder,
   dateFilterColumnId,
   onDelete,
+  meta,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -73,6 +75,7 @@ export function DataTable<TData, TValue>({
   const table = useReactTable({
     data,
     columns,
+    meta,
     // ... sisa konfigurasi table
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
