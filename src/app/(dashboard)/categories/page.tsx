@@ -56,7 +56,7 @@ export default function CategoriesPage() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">
-              Categories List
+              RKAP Categories List
             </h2>
             <p className="text-muted-foreground">
               Here's a list of all product categories from the database.

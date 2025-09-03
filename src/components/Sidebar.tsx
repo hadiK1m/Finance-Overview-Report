@@ -20,6 +20,7 @@ import {
   LogOut,
   WalletCards,
 } from 'lucide-react';
+import Image from 'next/image';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -150,21 +151,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
           }`}
         >
           {isOpen && (
-            <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <circle cx="8" cy="8" r="4" fill="white" />
-                <circle cx="16" cy="16" r="4" fill="white" />
-                <circle cx="8" cy="16" r="4" fill="white" fillOpacity="0.5" />
-                <circle cx="16" cy="8" r="4" fill="white" fillOpacity="0.5" />
-              </svg>
+            // 2. Ganti seluruh div logo dengan ini
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 p-1">
+              <Image
+                src="/logo-pln.svg"
+                alt="Logo PLN"
+                width={32}
+                height={32}
+                className="object-contain"
+              />
             </div>
           )}
+
           {isOpen && (
             <div>
               <p className="font-semibold text-sm truncate">Courtney Henry</p>
