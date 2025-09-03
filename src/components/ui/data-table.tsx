@@ -38,17 +38,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DateRangePicker } from './date-range-picker';
 import { DateRange } from 'react-day-picker';
-import { Download, EyeOff } from 'lucide-react';
-import { unparse } from 'papaparse';
+import { Download, EyeOff, Loader2 } from 'lucide-react';
 
-// 1. Tambahkan prop baru: `filterColumnId`
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
-  filterColumnPlaceholder: string; // Ubah prop ini
+  filterColumnPlaceholder: string;
   dateFilterColumnId: string;
   onDelete?: (selectedIds: number[]) => Promise<void>;
   meta?: any;
+  exportButtonLabel?: string;
+  toolbarActions?: React.ReactNode; // Prop baru untuk tombol tambahan
 }
 
 export function DataTable<TData, TValue>({
@@ -58,6 +58,8 @@ export function DataTable<TData, TValue>({
   dateFilterColumnId,
   onDelete,
   meta,
+  exportButtonLabel = 'Export',
+  toolbarActions, // Ambil prop baru
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -68,15 +70,16 @@ export function DataTable<TData, TValue>({
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>();
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [pagination, setPagination] = React.useState({
-    pageIndex: 0, // Halaman awal
-    pageSize: 25, // Jumlah baris per halaman
+    pageIndex: 0,
+    pageSize: 25,
   });
+
+  const [isExporting, setIsExporting] = React.useState(false);
 
   const table = useReactTable({
     data,
     columns,
     meta,
-    // ... sisa konfigurasi table
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
@@ -97,25 +100,44 @@ export function DataTable<TData, TValue>({
     },
   });
 
-  // FUNGSI UNTUK EXPORT CSV
-  const handleExport = () => {
-    const visibleRows = table.getFilteredRowModel().rows;
-    const dataToExport = visibleRows.map((row) => row.original);
+  const handleExport = async () => {
+    if (!dateRange?.from || !dateRange?.to) {
+      alert('Please select a date range to export the report.');
+      return;
+    }
 
-    const csv = unparse(dataToExport);
+    setIsExporting(true);
+    try {
+      const response = await fetch('/api/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate: dateRange.from.toISOString(),
+          endDate: dateRange.to.toISOString(),
+        }),
+      });
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'data-export.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      if (!response.ok) {
+        throw new Error('Failed to generate report');
+      }
+
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'Laporan_Triwulan.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('An error occurred while generating the report.');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   React.useEffect(() => {
-    // 2. Gunakan prop `dateFilterColumnId` di sini
     const dateColumn = table.getColumn(dateFilterColumnId);
     if (dateColumn) {
       if (dateRange?.from && dateRange?.to) {
@@ -128,9 +150,7 @@ export function DataTable<TData, TValue>({
 
   return (
     <div>
-      {/* BLOK DIV UNTUK TOOLBAR DENGAN INI */}
       <div className="flex items-center py-4">
-        {/* Filter di sisi kiri */}
         <div className="flex items-center space-x-2">
           <Input
             placeholder={`Filter ${filterColumnPlaceholder}...`}
@@ -141,30 +161,36 @@ export function DataTable<TData, TValue>({
           <DateRangePicker date={dateRange} onDateChange={setDateRange} />
         </div>
 
-        {/* Tombol Aksi di sisi kanan */}
         <div className="ml-auto flex items-center space-x-2">
-          {/* TOMBOL DELETE AKAN MUNCUL DI SINI SECARA KONDISIONAL */}
           {table.getFilteredSelectedRowModel().rows.length > 0 && (
             <Button
               variant="destructive"
               size="sm"
               onClick={async () => {
-                if (!onDelete) return; // Lakukan pengecekan jika onDelete tidak tersedia
+                if (!onDelete) return;
                 const selectedIds = table
                   .getFilteredSelectedRowModel()
                   .rows.map((row) => (row.original as any).id);
                 await onDelete(selectedIds);
-                table.resetRowSelection(); // Reset pilihan setelah berhasil dihapus
+                table.resetRowSelection();
               }}
-              disabled={!onDelete} // Nonaktifkan tombol jika tidak ada fungsi onDelete
+              disabled={!onDelete}
             >
               Delete ({table.getFilteredSelectedRowModel().rows.length})
             </Button>
           )}
-
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
+          {toolbarActions} {/* Render tombol tambahan di sini */}
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            {isExporting ? 'Exporting...' : exportButtonLabel}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

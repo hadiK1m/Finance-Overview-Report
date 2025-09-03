@@ -8,17 +8,10 @@ import {
   SearchIcon,
   HomeIcon,
   UsersIcon,
-  FileTextIcon,
-  BotIcon,
-  BarChart2Icon,
   ChevronUpIcon,
   ChevronDownIcon,
-  PlusIcon,
-  MoreHorizontalIcon,
   SettingsIcon,
-  GitMergeIcon,
   ArrowLeftIcon,
-  FigmaIcon,
   TrelloIcon,
   BarChartHorizontal as ChartBarStacked,
   ListCollapse,
@@ -87,8 +80,6 @@ const CollapsibleSection = ({
       >
         <span className="flex items-center truncate">{title}</span>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <PlusIcon className="w-4 h-4 text-gray-400 hover:text-gray-700" />
-          <MoreHorizontalIcon className="w-4 h-4 text-gray-400 hover:text-gray-700" />
           {isSectionOpen ? (
             <ChevronUpIcon className="w-4 h-4" />
           ) : (
@@ -258,50 +249,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
           >
             D Drive
           </NavItem>
-          <NavItem
-            href="/teams"
-            icon={<UsersIcon className="w-5 h-5" />}
-            isOpen={isOpen}
-          >
-            Teams
-          </NavItem>
         </div>
 
         <div className="border-t border-gray-200/80">
           <CollapsibleSection
-            title="Projects"
-            defaultOpen={true}
+            title="Management"
             isOpen={isOpen}
+            defaultOpen={true}
           >
-            <ProjectLink
-              href="/projects/atlas"
-              color="#63d393"
-              name="Atlas CRM Revamp"
+            <NavItem
+              href="/teams"
+              icon={<UsersIcon className="w-5 h-5" />}
               isOpen={isOpen}
-            />
-            <ProjectLink
-              href="/projects/nimbus"
-              color="#f19953"
-              name="Nimbus Dashboard"
-              isOpen={isOpen}
-            />
-            <ProjectLink
-              href="/projects/orion"
-              color="#4f80e1"
-              name="Orion API Gateway"
-              isOpen={isOpen}
-            />
-            <ProjectLink
-              href="/projects/helio"
-              color="#e14f82"
-              name="Helio Task System"
-              isOpen={isOpen}
-            />
+            >
+              Teams
+            </NavItem>
           </CollapsibleSection>
-        </div>
-
-        <div className="border-t border-gray-200/80">
-          <CollapsibleSection title="Management" isOpen={isOpen} />
         </div>
 
         <div className="border-t border-gray-200/80">
@@ -317,13 +280,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
             >
               Settings
             </NavItem>
-            <NavItem
-              href="/releases"
-              icon={<GitMergeIcon className="w-5 h-5" />}
-              isOpen={isOpen}
-            >
-              Releases
-            </NavItem>
           </CollapsibleSection>
         </div>
       </nav>
@@ -331,18 +287,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
       <div className="mt-auto border-t border-gray-200/80">
         <CollapsibleSection title="Apps" defaultOpen={true} isOpen={isOpen}>
           <NavItem
-            href="/apps/trello"
+            href="/"
             icon={<TrelloIcon className="w-5 h-5" />}
             isOpen={isOpen}
           >
-            Trello
-          </NavItem>
-          <NavItem
-            href="/apps/figma"
-            icon={<FigmaIcon className="w-5 h-5" />}
-            isOpen={isOpen}
-          >
-            Figma
+            DEKOM
           </NavItem>
         </CollapsibleSection>
       </div>

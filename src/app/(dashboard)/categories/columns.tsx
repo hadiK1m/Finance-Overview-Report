@@ -57,14 +57,11 @@ export const columns: ColumnDef<Category>[] = [
     header: 'Budget',
     cell: ({ row }) => {
       const budget = parseFloat(row.getValue('budget'));
-
-      // Mengubah format mata uang menjadi Rupiah (IDR)
       const formatted = new Intl.NumberFormat('id-ID', {
         style: 'currency',
         currency: 'IDR',
-        minimumFractionDigits: 0, // Opsional: menghilangkan desimal
+        minimumFractionDigits: 0,
       }).format(budget);
-
       return <div className="font-medium">{formatted}</div>;
     },
   },
@@ -93,15 +90,24 @@ export const columns: ColumnDef<Category>[] = [
     header: 'Created At',
     cell: ({ row }) => {
       const date = new Date(row.getValue('createdAt'));
-      // Menggunakan locale 'en-GB' agar format tanggal DD/MM/YYYY
       return <span>{date.toLocaleDateString('en-GB')}</span>;
+    },
+    // === TAMBAHKAN LOGIKA FILTER INI ===
+    filterFn: (row, columnId, value) => {
+      const date = new Date(row.getValue(columnId));
+      const [start, end] = value as [Date, Date];
+      const startDate = new Date(start);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(end);
+      endDate.setHours(23, 59, 59, 999);
+      return date >= startDate && date <= endDate;
     },
   },
   {
     id: 'actions',
-    cell: ({ row }) => {
+    cell: ({ row, table }) => {
       const category = row.original;
-
+      const { onEdit } = (table.options.meta as any) || {};
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -113,14 +119,14 @@ export const columns: ColumnDef<Category>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
-              // Ubah category.id menjadi String(category.id)
               onClick={() => navigator.clipboard.writeText(String(category.id))}
             >
               Copy category ID
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>View details</DropdownMenuItem>
-            <DropdownMenuItem>Edit category</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEdit?.(category)}>
+              Edit category
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       );

@@ -29,7 +29,7 @@ const Header: React.FC = () => {
   const title = generateTitle();
 
   return (
-    <header className="flex justify-between items-center p-8 border-b border-gray-200/80 bg-gray-50/50 sticky top-0 z-10">
+    <header className="flex justify-between items-center p-8 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
       {/* Bagian Kiri: Breadcrumb Dinamis */}
       <Breadcrumb>
         <BreadcrumbList>

@@ -21,7 +21,6 @@ export type BalanceSheet = {
 };
 
 export const columns: ColumnDef<BalanceSheet>[] = [
-  // Kolom Checkbox untuk Bulk Select
   {
     id: 'select',
     header: ({ table }) => (
@@ -63,8 +62,17 @@ export const columns: ColumnDef<BalanceSheet>[] = [
     header: 'Created At',
     cell: ({ row }) =>
       new Date(row.getValue('createdAt')).toLocaleDateString('en-GB'),
+    // === TAMBAHKAN LOGIKA FILTER INI ===
+    filterFn: (row, columnId, value) => {
+      const date = new Date(row.getValue(columnId));
+      const [start, end] = value as [Date, Date];
+      const startDate = new Date(start);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(end);
+      endDate.setHours(23, 59, 59, 999);
+      return date >= startDate && date <= endDate;
+    },
   },
-  // Kolom Aksi dengan Dropdown
   {
     id: 'actions',
     cell: ({ row }) => {

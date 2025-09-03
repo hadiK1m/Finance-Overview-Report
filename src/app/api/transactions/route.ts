@@ -105,6 +105,7 @@ export async function DELETE(request: Request) {
             })
             .where(eq(balanceSheet.id, transaction.balanceSheetId));
         }
+
         if (transaction.attachmentUrl) {
           try {
             const filePath = join(
@@ -151,6 +152,7 @@ export async function PATCH(request: Request) {
       .parse(body);
 
     await db.transaction(async (tx) => {
+      // 1. Dapatkan transaksi original sebelum diubah
       const originalTransaction = await tx.query.transactions.findFirst({
         where: eq(transactions.id, id),
       });
@@ -159,7 +161,7 @@ export async function PATCH(request: Request) {
         throw new Error('Transaction not found');
       }
 
-      // Kembalikan saldo lama dari balance sheet yang lama
+      // 2. Kembalikan saldo lama dari balance sheet yang lama
       if (originalTransaction.balanceSheetId) {
         await tx
           .update(balanceSheet)
@@ -169,7 +171,7 @@ export async function PATCH(request: Request) {
           .where(eq(balanceSheet.id, originalTransaction.balanceSheetId));
       }
 
-      // Tambahkan saldo baru ke balance sheet yang baru
+      // 3. Tambahkan saldo baru ke balance sheet yang baru
       const newBalanceSheetId = Number(valuesToUpdate.balanceSheetId);
       await tx
         .update(balanceSheet)
@@ -178,7 +180,7 @@ export async function PATCH(request: Request) {
         })
         .where(eq(balanceSheet.id, newBalanceSheetId));
 
-      // Perbarui data transaksi itu sendiri, termasuk attachmentUrl
+      // 4. Perbarui data transaksi itu sendiri
       await tx
         .update(transactions)
         .set({
@@ -188,7 +190,6 @@ export async function PATCH(request: Request) {
           payee: valuesToUpdate.payee,
           amount: valuesToUpdate.amount,
           balanceSheetId: newBalanceSheetId,
-          attachmentUrl: valuesToUpdate.attachmentUrl,
         })
         .where(eq(transactions.id, id));
     });
@@ -210,6 +211,48 @@ export async function PATCH(request: Request) {
     console.error('API PATCH Error (transactions):', error);
     return NextResponse.json(
       { message: 'Failed to update transaction.' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, attachmentUrl } = z
+      .object({
+        id: z.number(),
+        attachmentUrl: z.string().optional().nullable(), // attachmentUrl bisa null
+      })
+      .parse(body);
+
+    const updatedTransaction = await db
+      .update(transactions)
+      .set({ attachmentUrl: attachmentUrl || null }) // Pastikan null jika string kosong
+      .where(eq(transactions.id, id))
+      .returning();
+
+    if (updatedTransaction.length === 0) {
+      return NextResponse.json(
+        { message: 'Transaction not found.' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(updatedTransaction[0], { status: 200 });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          message: 'Validation failed',
+          errors: error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+    console.error('API PUT Error (transactions):', error);
+    return NextResponse.json(
+      { message: 'Failed to update attachment.' },
       { status: 500 }
     );
   }

@@ -18,8 +18,8 @@ export default function DashboardLayout({
   return (
     <div className="flex h-screen text-[#1a1a1a]">
       <Sidebar isOpen={isSidebarOpen} toggle={toggleSidebar} />
-      {/* Main tag sekarang membungkus children secara langsung */}
-      <main className="flex-1 flex flex-col overflow-y-auto">{children}</main>
+      {/* HAPUS 'overflow-y-auto' dari baris di bawah ini */}
+      <main className="flex-1 flex flex-col">{children}</main>
     </div>
   );
 }

@@ -6,7 +6,8 @@ import { columns, TransactionWithRelations } from './columns';
 import { DataTable } from '@/components/ui/data-table';
 import { AddTransactionDialog } from './add-transaction-dialog';
 import { EditTransactionDialog } from './edit-transaction-dialog';
-import { UploadAttachmentDialog } from './upload-attachment-dialog'; // Impor dialog baru
+import { UploadAttachmentDialog } from './upload-attachment-dialog';
+import { ImportCsvDialog } from './import-csv-dialog';
 
 export default function TransactionsPage() {
   const [data, setData] = React.useState<TransactionWithRelations[]>([]);
@@ -14,8 +15,6 @@ export default function TransactionsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
   const [selectedTransaction, setSelectedTransaction] =
     React.useState<TransactionWithRelations | null>(null);
-
-  // === Tambahkan state untuk dialog upload attachment ===
   const [isUploadAttachmentDialogOpen, setIsUploadAttachmentDialogOpen] =
     React.useState(false);
   const [transactionToUploadAttachment, setTransactionToUploadAttachment] =
@@ -59,7 +58,6 @@ export default function TransactionsPage() {
     setIsEditDialogOpen(true);
   };
 
-  // === Handler untuk membuka dialog upload attachment ===
   const handleUploadAttachment = (transaction: TransactionWithRelations) => {
     setTransactionToUploadAttachment(transaction);
     setIsUploadAttachmentDialogOpen(true);
@@ -76,6 +74,7 @@ export default function TransactionsPage() {
               Manage and track all your transactions.
             </p>
           </div>
+          {/* Hapus ImportCsvDialog dari sini, dan sisakan AddTransactionDialog */}
           <AddTransactionDialog onTransactionAdded={fetchTransactions} />
         </div>
         {loading ? (
@@ -89,8 +88,13 @@ export default function TransactionsPage() {
             onDelete={handleDelete}
             meta={{
               onEdit: handleEdit,
-              onUploadAttachment: handleUploadAttachment, // Teruskan handler ke DataTable
+              onUploadAttachment: handleUploadAttachment,
             }}
+            exportButtonLabel="Export Triwulan"
+            // Pindahkan ImportCsvDialog ke dalam prop toolbarActions
+            toolbarActions={
+              <ImportCsvDialog onImportSuccess={fetchTransactions} />
+            }
           />
         )}
       </div>
@@ -100,7 +104,6 @@ export default function TransactionsPage() {
         onOpenChange={setIsEditDialogOpen}
         onTransactionUpdated={fetchTransactions}
       />
-      {/* === Render dialog upload attachment === */}
       <UploadAttachmentDialog
         transaction={transactionToUploadAttachment}
         isOpen={isUploadAttachmentDialogOpen}

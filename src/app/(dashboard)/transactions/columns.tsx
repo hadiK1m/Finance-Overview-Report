@@ -58,6 +58,17 @@ export const columns: ColumnDef<TransactionWithRelations>[] = [
     cell: ({ row }) => (
       <span>{new Date(row.getValue('date')).toLocaleDateString('en-GB')}</span>
     ),
+    // === TAMBAHKAN LOGIKA FILTER INI ===
+    filterFn: (row, columnId, value) => {
+      const date = new Date(row.getValue(columnId));
+      const [start, end] = value as [Date, Date];
+      // Atur jam agar perbandingan mencakup keseluruhan hari
+      const startDate = new Date(start);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(end);
+      endDate.setHours(23, 59, 59, 999);
+      return date >= startDate && date <= endDate;
+    },
   },
   {
     accessorKey: 'category.name',
@@ -105,7 +116,6 @@ export const columns: ColumnDef<TransactionWithRelations>[] = [
       const { onUploadAttachment } = (table.options.meta as any) || {};
 
       if (url) {
-        // Jika URL ada, tampilkan "Sudah PJ" dengan ikon biru
         return (
           <a
             href={url}
@@ -119,7 +129,6 @@ export const columns: ColumnDef<TransactionWithRelations>[] = [
         );
       }
 
-      // Jika tidak ada URL, tampilkan "Belum PJ" dengan ikon merah yang bisa diklik
       return (
         <Button
           variant="ghost"
@@ -137,7 +146,7 @@ export const columns: ColumnDef<TransactionWithRelations>[] = [
     id: 'actions',
     cell: ({ row, table }) => {
       const transaction = row.original;
-      const { onEdit, onUploadAttachment } = (table.options.meta as any) || {};
+      const { onEdit } = (table.options.meta as any) || {};
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -159,7 +168,7 @@ export const columns: ColumnDef<TransactionWithRelations>[] = [
             <DropdownMenuItem onClick={() => onEdit?.(transaction)}>
               Edit transaction
             </DropdownMenuItem>
-            {transaction.attachmentUrl ? (
+            {transaction.attachmentUrl && (
               <DropdownMenuItem asChild>
                 <a
                   href={transaction.attachmentUrl}
@@ -168,12 +177,6 @@ export const columns: ColumnDef<TransactionWithRelations>[] = [
                 >
                   Download attachment
                 </a>
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem
-                onClick={() => onUploadAttachment?.(transaction)}
-              >
-                Upload attachment
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>

@@ -14,7 +14,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-// Tipe ini akan membantu TypeScript memahami struktur data dari API Anda
 export type ItemWithCategory = {
   id: number;
   name: string;
@@ -46,7 +45,7 @@ export const columns: ColumnDef<ItemWithCategory>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: 'name', // Ganti 'itemName' menjadi 'name' agar sesuai data API
+    accessorKey: 'name',
     header: ({ column }) => (
       <Button
         variant="ghost"
@@ -58,10 +57,8 @@ export const columns: ColumnDef<ItemWithCategory>[] = [
     ),
   },
   {
-    // Ganti accessorKey untuk merujuk ke objek 'category'
     accessorKey: 'category',
     header: 'RKAP Name',
-    // Render nama kategori secara manual dari objek
     cell: ({ row }) => {
       const category = row.original.category;
       return category ? category.name : 'N/A';
@@ -73,6 +70,16 @@ export const columns: ColumnDef<ItemWithCategory>[] = [
     cell: ({ row }) => {
       const date = new Date(row.getValue('createdAt'));
       return <span>{date.toLocaleDateString('en-GB')}</span>;
+    },
+    // === TAMBAHKAN LOGIKA FILTER INI ===
+    filterFn: (row, columnId, value) => {
+      const date = new Date(row.getValue(columnId));
+      const [start, end] = value as [Date, Date];
+      const startDate = new Date(start);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(end);
+      endDate.setHours(23, 59, 59, 999);
+      return date >= startDate && date <= endDate;
     },
   },
   {
