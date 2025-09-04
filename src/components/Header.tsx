@@ -14,6 +14,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
+import Image from 'next/image';
 
 const Header: React.FC = () => {
   const pathname = usePathname();
@@ -63,9 +64,14 @@ const Header: React.FC = () => {
         </BreadcrumbList>
       </Breadcrumb>
 
-      {/* Bagian Kanan: Judul Halaman dan Tombol Aksi */}
-      <div className="flex items-center space-x-4">
-        <h1 className="text-2xl font-bold text-gray-800">{title}</h1>
+      <div className="flex items-center">
+        <Image
+          src="/logo-danantara.svg"
+          alt="Danantara Logo"
+          width={150} // Sesuaikan lebar logo jika perlu
+          height={40} // Sesuaikan tinggi logo jika perlu
+          className="object-contain"
+        />
       </div>
     </header>
   );
