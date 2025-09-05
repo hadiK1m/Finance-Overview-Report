@@ -64,6 +64,9 @@ export function ChangeRoleDialog({
     try {
       const response = await fetch('/api/users', {
         method: 'PATCH',
+        // === TAMBAHKAN OPSI INI ===
+        credentials: 'include',
+        // ============================
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: user.id, ...values }),
       });

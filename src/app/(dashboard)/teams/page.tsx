@@ -5,14 +5,13 @@ import * as React from 'react';
 import Header from '@/components/Header';
 import { columns, User } from './columns';
 import { DataTable } from '@/components/ui/data-table';
-import { ChangeRoleDialog } from './change-role-dialog'; // <-- Impor dialog
+import { ChangeRoleDialog } from './change-role-dialog';
 
 export default function TeamsPage() {
   const [data, setData] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
-  // State untuk dialog
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
 
@@ -23,10 +22,18 @@ export default function TeamsPage() {
         fetch('/api/users'),
         fetch('/api/auth/session'),
       ]);
+
+      if (!usersRes.ok || !sessionRes.ok) {
+        throw new Error('Failed to fetch data');
+      }
+
+      // === PERBAIKAN UTAMA ADA DI SINI ===
+      // Baca setiap respons .json() hanya sekali dan simpan hasilnya
       const usersData = await usersRes.json();
       const sessionData = await sessionRes.json();
+
       setData(usersData);
-      setCurrentUser(sessionData.user);
+      setCurrentUser(sessionData.user); // Gunakan hasil yang sudah disimpan
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {

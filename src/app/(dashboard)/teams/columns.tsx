@@ -22,6 +22,7 @@ export type User = {
 };
 
 export const columns: ColumnDef<User>[] = [
+  // ... (kolom lain tetap sama)
   {
     accessorKey: 'fullName',
     header: 'Full Name',
@@ -61,14 +62,11 @@ export const columns: ColumnDef<User>[] = [
   },
   {
     id: 'actions',
+    header: () => <div className="text-right">Actions</div>,
     cell: ({ row, table }) => {
       const user = row.original;
       const { onChangeRole, currentUser } = (table.options.meta as any) || {};
-
-      // Jangan tampilkan menu aksi untuk pengguna itu sendiri
-      if (currentUser?.id === user.id) {
-        return null;
-      }
+      const isCurrentUser = currentUser?.id === user.id;
 
       return (
         <div className="text-right">
@@ -81,13 +79,21 @@ export const columns: ColumnDef<User>[] = [
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              {/* Tampilkan opsi hanya jika pengguna saat ini adalah admin */}
-              {currentUser?.role === 'admin' && (
-                <DropdownMenuItem onClick={() => onChangeRole?.(user)}>
-                  Change Role
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem className="text-red-600">
+
+              {/* === LOGIKA 'disabled' DIPERBARUI DI SINI === */}
+              <DropdownMenuItem
+                onClick={() => onChangeRole?.(user)}
+                // Opsi hanya dinonaktifkan jika pengguna yang login bukan admin
+                disabled={currentUser?.role !== 'admin'}
+              >
+                Change Role
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600"
+                // Opsi hapus tetap dinonaktifkan untuk diri sendiri
+                disabled={isCurrentUser}
+              >
                 Delete User
               </DropdownMenuItem>
             </DropdownMenuContent>

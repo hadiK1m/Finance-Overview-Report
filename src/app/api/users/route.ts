@@ -5,6 +5,7 @@ import { users, userRoleEnum } from '@/lib/db/schema';
 import { desc, eq, and } from 'drizzle-orm';
 import * as z from 'zod';
 import { decrypt } from '@/lib/auth';
+import { NextRequest } from 'next/server';
 
 // Skema untuk validasi update role
 const updateUserRoleSchema = z.object({
@@ -37,16 +38,14 @@ export async function GET() {
   }
 }
 
-// === HANDLER PATCH UNTUK MENGUBAH ROLE ===
+// Handler PATCH untuk mengubah role
+
 export async function PATCH(request: Request) {
-  // 1. Cek otorisasi admin
-  const token = request.headers
-    .get('cookie')
-    ?.split('session_token=')[1]
-    ?.split(';')[0];
+  const token = (request as NextRequest).cookies.get('session_token')?.value;
   if (!token) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
+
   const session = await decrypt(token);
   if (!session?.userId) {
     return NextResponse.json({ message: 'Invalid token' }, { status: 401 });
@@ -63,18 +62,11 @@ export async function PATCH(request: Request) {
     );
   }
 
-  // 2. Lanjutkan dengan logika update
   try {
     const body = await request.json();
     const { id, role } = updateUserRoleSchema.parse(body);
 
-    // Admin tidak bisa mengubah rolenya sendiri
-    if (id === adminUser.id) {
-      return NextResponse.json(
-        { message: 'Admin cannot change their own role.' },
-        { status: 400 }
-      );
-    }
+    // === BARIS KODE YANG MELARANG PENGEDITAN DIRI SENDIRI TELAH DIHAPUS DARI SINI ===
 
     const updatedUser = await db
       .update(users)
@@ -99,6 +91,7 @@ export async function PATCH(request: Request) {
         { status: 400 }
       );
     }
+    console.error('API PATCH Error (users):', error);
     return NextResponse.json(
       { message: 'Failed to update user role.' },
       { status: 500 }

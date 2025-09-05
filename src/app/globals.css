@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -119,4 +119,18 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* NProgress Bar Styling */
+#nprogress {
+  pointer-events: none;
+}
+#nprogress .bar {
+  background: #2563eb; /* Anda bisa mengganti warna ini (biru) */
+  position: fixed;
+  z-index: 9999;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
 }

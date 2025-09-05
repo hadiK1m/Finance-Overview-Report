@@ -1,7 +1,7 @@
 // src/components/Sidebar.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState } from 'react'; // Impor useState
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -19,6 +19,7 @@ import {
   ArrowLeftRight,
   LogOut,
   WalletCards,
+  Loader2, // 1. Impor ikon Loader2
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -93,44 +94,25 @@ const CollapsibleSection = ({
   );
 };
 
-const ProjectLink = ({
-  href,
-  color,
-  name,
-  isOpen,
-}: {
-  href: string;
-  color: string;
-  name: string;
-  isOpen: boolean;
-}) => (
-  <Link
-    href={href}
-    className={`flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-100 ${
-      !isOpen && 'justify-center'
-    }`}
-  >
-    <span
-      className={`w-2 h-2 rounded-full flex-shrink-0`}
-      style={{ backgroundColor: color }}
-    ></span>
-    {isOpen && <span className="ml-3 truncate">{name}</span>}
-  </Link>
-);
-
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
   const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false); // 2. Tambahkan state loading
 
+  // 3. Perbarui fungsi handleLogout
   const handleLogout = async () => {
+    setIsLoggingOut(true); // Atur loading menjadi true
     try {
       const response = await fetch('/api/auth/logout', { method: 'POST' });
       if (response.ok) {
         router.push('/login');
+        // Tidak perlu set loading ke false karena komponen akan unmount
       } else {
         console.error('Failed to logout');
+        setIsLoggingOut(false); // Reset jika gagal
       }
     } catch (error) {
       console.error('An error occurred during logout:', error);
+      setIsLoggingOut(false); // Reset jika ada error
     }
   };
 
@@ -140,6 +122,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
         isOpen ? 'w-64 p-4 space-y-4' : 'w-20 p-2 space-y-2'
       }`}
     >
+      {/* ... (Konten Sidebar lainnya tidak berubah) ... */}
       <div
         className={`flex items-center ${
           isOpen ? 'justify-between' : 'justify-center'
@@ -151,7 +134,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
           }`}
         >
           {isOpen && (
-            // 2. Ganti seluruh div logo dengan ini
             <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 p-1">
               <Image
                 src="/logo-pln.svg"
@@ -294,15 +276,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
         </CollapsibleSection>
       </div>
 
+      {/* 4. Perbarui tombol Logout */}
       <div className="border-t border-gray-200/80 pt-2">
         <button
           onClick={handleLogout}
-          className={`flex items-center w-full px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-100 ${
+          disabled={isLoggingOut}
+          className={`flex items-center w-full px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 ${
             !isOpen && 'justify-center'
           }`}
         >
-          <LogOut className="w-5 h-5" />
-          {isOpen && <span className="ml-3 truncate">Logout</span>}
+          {isLoggingOut ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <LogOut className="w-5 h-5" />
+          )}
+          {isOpen && (
+            <span className="ml-3 truncate">
+              {isLoggingOut ? 'Logging out...' : 'Logout'}
+            </span>
+          )}
         </button>
       </div>
     </aside>
