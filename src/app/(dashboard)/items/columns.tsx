@@ -18,6 +18,7 @@ export type ItemWithCategory = {
   id: number;
   name: string;
   createdAt: string;
+  editedAt?: string | Date | null;
   categoryId: number;
   category: {
     name: string;
@@ -29,7 +30,10 @@ export const columns: ColumnDef<ItemWithCategory>[] = [
     id: 'select',
     header: ({ table }) => (
       <Checkbox
-        checked={table.getIsAllPageRowsSelected()}
+        checked={
+          table.getIsAllPageRowsSelected() ||
+          (table.getIsSomePageRowsSelected() && 'indeterminate')
+        }
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
         aria-label="Select all"
       />
@@ -57,7 +61,7 @@ export const columns: ColumnDef<ItemWithCategory>[] = [
     ),
   },
   {
-    accessorKey: 'category',
+    accessorKey: 'category.name',
     header: 'RKAP Name',
     cell: ({ row }) => {
       const category = row.original.category;
@@ -71,7 +75,6 @@ export const columns: ColumnDef<ItemWithCategory>[] = [
       const date = new Date(row.getValue('createdAt'));
       return <span>{date.toLocaleDateString('en-GB')}</span>;
     },
-    // === TAMBAHKAN LOGIKA FILTER INI ===
     filterFn: (row, columnId, value) => {
       const date = new Date(row.getValue(columnId));
       const [start, end] = value as [Date, Date];
@@ -83,9 +86,21 @@ export const columns: ColumnDef<ItemWithCategory>[] = [
     },
   },
   {
-    id: 'actions',
+    accessorKey: 'editedAt',
+    header: 'Updated At',
     cell: ({ row }) => {
+      const date: string | null = row.getValue('editedAt');
+      if (!date) {
+        return <span>-</span>;
+      }
+      return <span>{new Date(date).toLocaleDateString('en-GB')}</span>;
+    },
+  },
+  {
+    id: 'actions',
+    cell: ({ row, table }) => {
       const item = row.original;
+      const { onEdit } = (table.options.meta as any) || {};
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -102,8 +117,10 @@ export const columns: ColumnDef<ItemWithCategory>[] = [
               Copy item ID
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>View details</DropdownMenuItem>
-            <DropdownMenuItem>Edit item</DropdownMenuItem>
+            {/* Item "View details" telah dihapus dari sini */}
+            <DropdownMenuItem onClick={() => onEdit?.(item)}>
+              Edit item
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       );

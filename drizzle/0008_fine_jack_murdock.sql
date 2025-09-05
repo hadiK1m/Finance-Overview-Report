@@ -1,0 +1,1 @@
+ALTER TABLE "balance_sheet" ADD COLUMN "edited_at" timestamp;

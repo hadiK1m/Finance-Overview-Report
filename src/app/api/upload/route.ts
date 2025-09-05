@@ -1,9 +1,9 @@
 // src/app/api/upload/route.ts
 import { writeFile, mkdir, unlink } from 'fs/promises';
 import { NextRequest, NextResponse } from 'next/server';
-import { join, extname } from 'path'; // Impor 'extname' untuk mendapatkan ekstensi file
+import { join, extname } from 'path';
 import { decrypt } from '@/lib/auth';
-import { v4 as uuidv4 } from 'uuid'; // Impor uuid
+import { v4 as uuidv4 } from 'uuid';
 
 // Handler POST untuk mengunggah file baru
 export async function POST(request: NextRequest) {
@@ -41,10 +41,13 @@ export async function POST(request: NextRequest) {
 
   // 4. Buat nama folder yang aman dari email pengguna
   const userEmail = session.email;
-  const userFolder = userEmail.replace(/[^a-zA-Z0-9]/g, '_'); // Ganti karakter non-alfanumerik
+  const userFolder = userEmail.replace(/[^a-zA-Z0-9]/g, '_');
 
-  // 5. Buat path dinamis: /uploads/email_pengguna/
-  const relativeUploadDir = join('/uploads', userFolder);
+  // 5. Tentukan path dinamis berdasarkan parameter 'destination'
+  const destination =
+    request.nextUrl.searchParams.get('destination') || 'default';
+  const subDir = destination === 'drive' ? 'drive' : ''; // Subdirektori khusus untuk drive
+  const relativeUploadDir = join('/uploads', userFolder, subDir);
   const uploadDir = join(process.cwd(), 'public', relativeUploadDir);
 
   try {
@@ -60,21 +63,21 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 6. === GENERATE NAMA FILE UNIK ===
-  const fileExtension = extname(file.name); // Dapatkan ekstensi asli file
-  const uniqueFileName = `${uuidv4()}${fileExtension}`; // Gabungkan UUID dengan ekstensi
+  // 6. Generate nama file yang unik
+  const fileExtension = extname(file.name);
+  const uniqueFileName = `${uuidv4()}${fileExtension}`;
 
-  // 7. Simpan file dengan nama unik
+  // 7. Simpan file
   const path = join(uploadDir, uniqueFileName);
   await writeFile(path, buffer);
 
-  // 8. Kembalikan URL relatif yang bisa diakses oleh browser dengan nama file unik
+  // 8. Kembalikan URL relatif dan ukuran file
   const fileUrl = join(relativeUploadDir, uniqueFileName).replace(/\\/g, '/');
 
-  return NextResponse.json({ success: true, url: fileUrl });
+  return NextResponse.json({ success: true, url: fileUrl, size: file.size });
 }
 
-// Handler DELETE untuk menghapus file yang sudah ada (tidak berubah)
+// Handler DELETE untuk menghapus file yang sudah ada
 export async function DELETE(request: NextRequest) {
   const token = request.cookies.get('session_token')?.value;
   if (!token) {
@@ -103,6 +106,7 @@ export async function DELETE(request: NextRequest) {
     });
   } catch (error) {
     console.warn(`File not found or could not be deleted: ${fileUrl}`);
+    // Tetap kembalikan sukses jika file sudah tidak ada
     return NextResponse.json({
       success: true,
       message: 'File not found, considered deleted.',

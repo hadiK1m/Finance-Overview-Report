@@ -43,6 +43,34 @@
       "when": 1756792537039,
       "tag": "0005_elite_bucky",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1756959374788,
+      "tag": "0006_stiff_queen_noir",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1756963615835,
+      "tag": "0007_charming_dark_phoenix",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1756965617537,
+      "tag": "0008_fine_jack_murdock",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1757059464451,
+      "tag": "0009_unknown_rattler",
+      "breakpoints": true
     }
   ]
 }

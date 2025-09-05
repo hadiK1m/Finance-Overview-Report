@@ -6,19 +6,32 @@
 }
 
 .drive-item {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex; /* <-- Ubah ke flex */
+  justify-content: space-between; /* <-- Tambahkan ini */
   align-items: center;
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;
   border: 1px solid transparent;
   transition: background-color 0.2s, border-color 0.2s;
   cursor: pointer;
+  overflow: hidden; /* <-- Tambahkan ini */
 }
 
 .drive-item:hover {
   background-color: hsl(var(--muted));
   border-color: hsl(var(--border));
+}
+
+/* Ini untuk memastikan div yang berisi ikon dan teks tidak melebar */
+.drive-item > div:first-child {
+  min-width: 0;
+}
+
+/* Ini untuk memotong teks yang panjang */
+.drive-item .truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Styling tambahan untuk baris kedua di dalam item grid */

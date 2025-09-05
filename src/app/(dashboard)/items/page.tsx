@@ -3,13 +3,17 @@
 
 import * as React from 'react';
 import Header from '@/components/Header';
-import { columns, ItemWithCategory } from './columns'; // Impor tipe baru
+import { columns, ItemWithCategory } from './columns';
 import { DataTable } from '@/components/ui/data-table';
-import { AddItemDialog } from './add-item-dialog'; // Impor dialog baru
+import { AddItemDialog } from './add-item-dialog';
+import { EditItemDialog } from './edit-item-dialog';
 
 export default function ItemsPage() {
   const [data, setData] = React.useState<ItemWithCategory[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+  const [selectedItem, setSelectedItem] =
+    React.useState<ItemWithCategory | null>(null);
 
   const fetchItems = async () => {
     try {
@@ -27,6 +31,31 @@ export default function ItemsPage() {
   React.useEffect(() => {
     fetchItems();
   }, []);
+
+  const handleDelete = async (ids: number[]) => {
+    try {
+      const response = await fetch('/api/items', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete items');
+      }
+
+      // Refresh data tabel setelah berhasil menghapus
+      await fetchItems();
+    } catch (error) {
+      console.error(error);
+      // Anda bisa menambahkan notifikasi error untuk pengguna di sini
+    }
+  };
+
+  const handleEdit = (item: ItemWithCategory) => {
+    setSelectedItem(item);
+    setIsEditDialogOpen(true);
+  };
 
   return (
     <>
@@ -49,9 +78,19 @@ export default function ItemsPage() {
             data={data}
             filterColumnPlaceholder="items..."
             dateFilterColumnId="createdAt"
+            onDelete={handleDelete}
+            meta={{
+              onEdit: handleEdit,
+            }}
           />
         )}
       </div>
+      <EditItemDialog
+        item={selectedItem}
+        isOpen={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onItemUpdated={fetchItems}
+      />
     </>
   );
 }

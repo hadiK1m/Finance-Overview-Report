@@ -8,6 +8,7 @@ import {
   timestamp,
   integer,
   boolean,
+  foreignKey,
 } from 'drizzle-orm/pg-core';
 
 // Tabel untuk pengguna
@@ -25,6 +26,7 @@ export const categories = pgTable('categories', {
   name: varchar('name', { length: 256 }).notNull(),
   budget: integer('budget').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  editedAt: timestamp('edited_at').$onUpdate(() => new Date()),
 });
 
 // Tabel untuk item
@@ -35,6 +37,7 @@ export const items = pgTable('items', {
     .references(() => categories.id, { onDelete: 'cascade' })
     .notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  editedAt: timestamp('edited_at').$onUpdate(() => new Date()),
 });
 
 // Tabel untuk neraca (Balance Sheet)
@@ -43,6 +46,7 @@ export const balanceSheet = pgTable('balance_sheet', {
   name: varchar('name', { length: 256 }).notNull(),
   balance: integer('balance').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  editedAt: timestamp('edited_at').$onUpdate(() => new Date()),
 });
 
 // Tabel untuk transaksi
@@ -93,4 +97,55 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
     fields: [transactions.balanceSheetId],
     references: [balanceSheet.id],
   }),
+}));
+
+export const driveItems = pgTable(
+  'drive_items',
+  {
+    id: serial('id').primaryKey(),
+    name: varchar('name', { length: 256 }).notNull(),
+    type: varchar('type', { length: 50, enum: ['file', 'folder'] }).notNull(),
+    path: text('path'),
+    size: integer('size'),
+    // 2. Definisikan kolomnya saja, tanpa .references()
+    parentId: integer('parent_id'),
+    userId: integer('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    modifiedAt: timestamp('edited_at')
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => {
+    return {
+      // 3. Definisikan foreign key untuk parentId di sini
+      parentReference: foreignKey({
+        columns: [table.parentId],
+        foreignColumns: [table.id],
+      }).onDelete('cascade'),
+    };
+  }
+);
+
+// Relasi untuk tabel drive
+export const driveItemsRelations = relations(driveItems, ({ one, many }) => ({
+  user: one(users, {
+    fields: [driveItems.userId],
+    references: [users.id],
+  }),
+  parent: one(driveItems, {
+    fields: [driveItems.parentId],
+    references: [driveItems.id],
+    relationName: 'parent',
+  }),
+  children: many(driveItems, {
+    relationName: 'parent',
+  }),
+}));
+
+// Tambahkan relasi ini ke pengguna agar bisa mengambil semua item drive milik pengguna
+export const usersRelations = relations(users, ({ many }) => ({
+  driveItems: many(driveItems),
 }));

@@ -1,15 +1,20 @@
 // src/app/api/categories/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { categories, items } from '@/lib/db/schema'; // Impor 'items'
+import { categories, items } from '@/lib/db/schema';
 import * as z from 'zod';
-import { inArray, eq, sql } from 'drizzle-orm'; // Impor 'inArray' dan 'eq', 'sql'
+import { inArray, eq, sql } from 'drizzle-orm';
 import { getTableColumns } from 'drizzle-orm';
 
 // Skema untuk validasi data kategori baru
 const categorySchema = z.object({
   name: z.string().min(1, 'Category name is required.'),
   budget: z.coerce.number().min(0, 'Budget must be a positive number.'),
+});
+
+// Skema untuk validasi pembaruan, termasuk ID
+const updateCategorySchema = categorySchema.extend({
+  id: z.number(),
 });
 
 // Handler untuk GET (mengambil semua kategori beserta jumlah item)
@@ -60,6 +65,41 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// === TAMBAHKAN HANDLER PATCH BARU INI ===
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, name, budget } = updateCategorySchema.parse(body);
+
+    const updatedCategory = await db
+      .update(categories)
+      .set({ name, budget })
+      .where(eq(categories.id, id))
+      .returning();
+
+    if (updatedCategory.length === 0) {
+      return NextResponse.json(
+        { message: 'Category not found.' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(updatedCategory[0], { status: 200 });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { message: error.issues[0].message },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      { message: 'Failed to update category.' },
+      { status: 500 }
+    );
+  }
+}
+// === AKHIR DARI HANDLER PATCH ===
 
 // Handler untuk DELETE (menghapus kategori)
 export async function DELETE(request: Request) {

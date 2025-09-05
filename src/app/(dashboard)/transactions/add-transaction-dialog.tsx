@@ -54,6 +54,7 @@ import { Category } from '@/lib/category-data';
 import { ItemWithCategory } from '../items/columns';
 import { BalanceSheet } from '../balancesheet/columns';
 import { transactionFormSchema } from '@/lib/schemas';
+import { AmountInput } from '@/components/ui/amount-input';
 
 type TransactionType = 'income' | 'expense';
 
@@ -341,13 +342,14 @@ export function AddTransactionDialog({
                           <Input
                             type="number"
                             placeholder="e.g., 5000"
-                            {...field}
+                            className="rounded-l-none"
+                            // Gunakan field.value dan field.onChange seperti biasa
                             value={field.value ?? ''}
                             onChange={(event) => {
                               const value = event.target.value;
+                              // react-hook-form's onChange bisa menangani event atau nilai langsung
                               field.onChange(value === '' ? undefined : +value);
                             }}
-                            className="rounded-l-none"
                           />
                         </FormControl>
                       </div>

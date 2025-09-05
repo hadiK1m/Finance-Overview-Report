@@ -11,13 +11,13 @@ export const categorySchema = z.object({
 });
 
 // Tipe ini digunakan di seluruh frontend (halaman, komponen tabel)
-// untuk memastikan tipe data yang diterima dari API sudah benar.
 export type Category = {
   id: number;
   name: string;
   budget: number;
   itemCount: number;
-  createdAt: string | Date; // Bisa string (dari JSON) atau objek Date
+  createdAt: string | Date;
+  editedAt?: string | Date | null; // Dibuat opsional karena data lama mungkin tidak memilikinya
 };
 
 // Data sampel ini tidak lagi digunakan secara aktif oleh halaman,

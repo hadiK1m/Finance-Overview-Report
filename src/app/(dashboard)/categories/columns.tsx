@@ -92,7 +92,6 @@ export const columns: ColumnDef<Category>[] = [
       const date = new Date(row.getValue('createdAt'));
       return <span>{date.toLocaleDateString('en-GB')}</span>;
     },
-    // === TAMBAHKAN LOGIKA FILTER INI ===
     filterFn: (row, columnId, value) => {
       const date = new Date(row.getValue(columnId));
       const [start, end] = value as [Date, Date];
@@ -104,9 +103,21 @@ export const columns: ColumnDef<Category>[] = [
     },
   },
   {
+    accessorKey: 'editedAt',
+    header: 'Edited At',
+    cell: ({ row }) => {
+      const date: string | null = row.getValue('editedAt');
+      if (!date) {
+        return <span>-</span>;
+      }
+      return <span>{new Date(date).toLocaleDateString('en-GB')}</span>;
+    },
+  },
+  {
     id: 'actions',
     cell: ({ row, table }) => {
       const category = row.original;
+      // Ambil fungsi onEdit dari meta
       const { onEdit } = (table.options.meta as any) || {};
       return (
         <DropdownMenu>
@@ -124,6 +135,7 @@ export const columns: ColumnDef<Category>[] = [
               Copy category ID
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            {/* Panggil onEdit saat item menu di klik */}
             <DropdownMenuItem onClick={() => onEdit?.(category)}>
               Edit category
             </DropdownMenuItem>

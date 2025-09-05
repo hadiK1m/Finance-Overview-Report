@@ -3,11 +3,15 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { balanceSheet } from '@/lib/db/schema';
 import * as z from 'zod';
-import { inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 const sheetSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   balance: z.coerce.number(),
+});
+
+const updateSheetSchema = sheetSchema.extend({
+  id: z.number(),
 });
 
 export async function GET() {
@@ -41,6 +45,46 @@ export async function POST(request: Request) {
     }
     return NextResponse.json(
       { message: 'Failed to create balance sheet.' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, name, balance } = updateSheetSchema.parse(body);
+
+    // Cek perbedaan saldo untuk penyesuaian (opsional, tapi praktik yang baik)
+    const originalSheet = await db.query.balanceSheet.findFirst({
+      where: eq(balanceSheet.id, id),
+    });
+
+    if (!originalSheet) {
+      return NextResponse.json(
+        { message: 'Balance sheet not found.' },
+        { status: 404 }
+      );
+    }
+
+    // Logika ini penting jika Anda ingin saldo transaksi tetap akurat.
+    // Saat ini kita hanya mengupdate saldo secara manual.
+    const updatedSheet = await db
+      .update(balanceSheet)
+      .set({ name, balance })
+      .where(eq(balanceSheet.id, id))
+      .returning();
+
+    return NextResponse.json(updatedSheet[0], { status: 200 });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { message: error.issues[0].message },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      { message: 'Failed to update balance sheet.' },
       { status: 500 }
     );
   }

@@ -5,10 +5,17 @@ import Header from '@/components/Header';
 import { columns, BalanceSheet } from './columns';
 import { DataTable } from '@/components/ui/data-table';
 import { AddBalanceSheetDialog } from './add-balancesheet-dialog';
+import { EditBalanceSheetDialog } from './edit-balancesheet-dialog'; // <-- Impor dialog edit
 
 export default function BalanceSheetPage() {
   const [data, setData] = React.useState<BalanceSheet[]>([]);
   const [loading, setLoading] = React.useState(true);
+
+  // State untuk dialog edit
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+  const [selectedSheet, setSelectedSheet] = React.useState<BalanceSheet | null>(
+    null
+  );
 
   const fetchSheets = async () => {
     setLoading(true);
@@ -40,6 +47,12 @@ export default function BalanceSheetPage() {
     }
   };
 
+  // Fungsi untuk membuka dialog edit
+  const handleEdit = (sheet: BalanceSheet) => {
+    setSelectedSheet(sheet);
+    setIsEditDialogOpen(true);
+  };
+
   return (
     <>
       <Header />
@@ -61,10 +74,20 @@ export default function BalanceSheetPage() {
             data={data}
             filterColumnPlaceholder="balance sheets..."
             dateFilterColumnId="createdAt"
-            onDelete={handleDelete} // prop ini
+            onDelete={handleDelete}
+            meta={{
+              onEdit: handleEdit, // <-- Kirim fungsi edit ke tabel
+            }}
           />
         )}
       </div>
+      {/* Render komponen dialog edit */}
+      <EditBalanceSheetDialog
+        sheet={selectedSheet}
+        isOpen={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onSheetUpdated={fetchSheets}
+      />
     </>
   );
 }

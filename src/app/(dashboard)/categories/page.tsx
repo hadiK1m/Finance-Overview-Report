@@ -6,11 +6,17 @@ import Header from '@/components/Header';
 import { columns } from './columns';
 import { DataTable } from '@/components/ui/data-table';
 import { AddCategoryDialog } from './add-category-dialog';
+import { EditCategoryDialog } from './edit-category-dialog'; // <-- Impor dialog edit
 import { Category } from '@/lib/category-data';
 
 export default function CategoriesPage() {
   const [data, setData] = React.useState<Category[]>([]);
   const [loading, setLoading] = React.useState(true);
+
+  // State untuk mengontrol dialog edit
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+  const [selectedCategory, setSelectedCategory] =
+    React.useState<Category | null>(null);
 
   const fetchCategories = async () => {
     try {
@@ -41,12 +47,16 @@ export default function CategoriesPage() {
         throw new Error('Failed to delete categories');
       }
 
-      // Refresh data tabel setelah berhasil menghapus
       await fetchCategories();
     } catch (error) {
       console.error(error);
-      // Di sini Anda bisa menambahkan notifikasi error untuk pengguna
     }
+  };
+
+  // Fungsi untuk membuka dialog edit
+  const handleEdit = (category: Category) => {
+    setSelectedCategory(category);
+    setIsEditDialogOpen(true);
   };
 
   return (
@@ -72,10 +82,22 @@ export default function CategoriesPage() {
             data={data}
             filterColumnPlaceholder="categories..."
             dateFilterColumnId="createdAt"
-            onDelete={handleDelete} // prop ini
+            onDelete={handleDelete}
+            // Kirim handleEdit ke DataTable
+            meta={{
+              onEdit: handleEdit,
+            }}
           />
         )}
       </div>
+
+      {/* Render komponen dialog edit */}
+      <EditCategoryDialog
+        category={selectedCategory}
+        isOpen={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onCategoryUpdated={fetchCategories}
+      />
     </>
   );
 }

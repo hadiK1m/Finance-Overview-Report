@@ -169,14 +169,13 @@ export function EditTransactionDialog({
         return;
       }
     } else if (existingAttachmentUrl === null) {
-      // PERUBAHAN KUNCI: Jika file lama dihapus dan tidak ada file baru
       attachmentUrlToUpdate = null;
     }
 
     const finalAmount =
       transactionType === 'expense'
-        ? -Math.abs(values.amount)
-        : Math.abs(values.amount);
+        ? -Math.abs(values.amount as number)
+        : Math.abs(values.amount as number);
 
     try {
       const { attachment, ...dataToSend } = values;
@@ -334,7 +333,7 @@ export function EditTransactionDialog({
                           type="single"
                           variant="outline"
                           value={transactionType}
-                          onValueChange={(value: TransactionType) => {
+                          onValue-Change={(value: TransactionType) => {
                             if (value) setTransactionType(value);
                           }}
                         >
@@ -355,13 +354,12 @@ export function EditTransactionDialog({
                           <Input
                             type="number"
                             placeholder="e.g., 5000"
-                            {...field}
+                            className="rounded-l-none"
                             value={field.value ?? ''}
                             onChange={(event) => {
                               const value = event.target.value;
                               field.onChange(value === '' ? undefined : +value);
                             }}
-                            className="rounded-l-none"
                           />
                         </FormControl>
                       </div>

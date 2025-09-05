@@ -18,6 +18,7 @@ export type BalanceSheet = {
   name: string;
   balance: number;
   createdAt: string;
+  editedAt?: string | Date | null; // Kolom baru ditambahkan di sini
 };
 
 export const columns: ColumnDef<BalanceSheet>[] = [
@@ -62,7 +63,6 @@ export const columns: ColumnDef<BalanceSheet>[] = [
     header: 'Created At',
     cell: ({ row }) =>
       new Date(row.getValue('createdAt')).toLocaleDateString('en-GB'),
-    // === TAMBAHKAN LOGIKA FILTER INI ===
     filterFn: (row, columnId, value) => {
       const date = new Date(row.getValue(columnId));
       const [start, end] = value as [Date, Date];
@@ -74,9 +74,21 @@ export const columns: ColumnDef<BalanceSheet>[] = [
     },
   },
   {
-    id: 'actions',
+    accessorKey: 'editedAt',
+    header: 'Updated At',
     cell: ({ row }) => {
+      const date: string | null = row.getValue('editedAt');
+      if (!date) {
+        return <span>-</span>;
+      }
+      return <span>{new Date(date).toLocaleDateString('en-GB')}</span>;
+    },
+  },
+  {
+    id: 'actions',
+    cell: ({ row, table }) => {
       const sheet = row.original;
+      const { onEdit } = (table.options.meta as any) || {};
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -92,7 +104,9 @@ export const columns: ColumnDef<BalanceSheet>[] = [
             >
               Copy ID
             </DropdownMenuItem>
-            <DropdownMenuItem>Edit</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEdit?.(sheet)}>
+              Edit
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       );

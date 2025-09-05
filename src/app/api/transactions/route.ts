@@ -2,13 +2,13 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { transactions, balanceSheet } from '@/lib/db/schema';
-import { apiTransactionSchema } from '@/lib/schemas';
+import { apiTransactionSchema } from '@/lib/schemas'; // <-- Perbaiki import di sini
 import * as z from 'zod';
 import { inArray, eq, sql } from 'drizzle-orm';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 
-// Handler untuk GET (mengambil semua transaksi dengan relasinya)
+// Handler untuk GET (tidak berubah)
 export async function GET() {
   try {
     const allTransactions = await db.query.transactions.findMany({
@@ -33,6 +33,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    // Gunakan nama skema yang benar
     const parsedData = apiTransactionSchema.parse(body);
     const { amount, balanceSheetId, ...values } = parsedData;
 
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
   }
 }
 
-// Handler untuk DELETE (menghapus transaksi dan file terkait)
+// Handler untuk DELETE (tidak berubah)
 export async function DELETE(request: Request) {
   try {
     const body = await request.json();
@@ -96,7 +97,6 @@ export async function DELETE(request: Request) {
 
     await db.transaction(async (tx) => {
       for (const transaction of transactionsToDelete) {
-        // Kembalikan saldo (mengurangi amount akan menambahkan nilai jika negatif)
         if (transaction.balanceSheetId) {
           await tx
             .update(balanceSheet)
@@ -147,12 +147,12 @@ export async function DELETE(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
+    // Gunakan nama skema yang benar
     const { id, ...valuesToUpdate } = apiTransactionSchema
       .extend({ id: z.number() })
       .parse(body);
 
     await db.transaction(async (tx) => {
-      // 1. Dapatkan transaksi original sebelum diubah
       const originalTransaction = await tx.query.transactions.findFirst({
         where: eq(transactions.id, id),
       });
@@ -161,7 +161,6 @@ export async function PATCH(request: Request) {
         throw new Error('Transaction not found');
       }
 
-      // 2. Kembalikan saldo lama dari balance sheet yang lama
       if (originalTransaction.balanceSheetId) {
         await tx
           .update(balanceSheet)
@@ -171,7 +170,6 @@ export async function PATCH(request: Request) {
           .where(eq(balanceSheet.id, originalTransaction.balanceSheetId));
       }
 
-      // 3. Tambahkan saldo baru ke balance sheet yang baru
       const newBalanceSheetId = Number(valuesToUpdate.balanceSheetId);
       await tx
         .update(balanceSheet)
@@ -180,7 +178,6 @@ export async function PATCH(request: Request) {
         })
         .where(eq(balanceSheet.id, newBalanceSheetId));
 
-      // 4. Perbarui data transaksi itu sendiri
       await tx
         .update(transactions)
         .set({
@@ -190,6 +187,7 @@ export async function PATCH(request: Request) {
           payee: valuesToUpdate.payee,
           amount: valuesToUpdate.amount,
           balanceSheetId: newBalanceSheetId,
+          attachmentUrl: valuesToUpdate.attachmentUrl,
         })
         .where(eq(transactions.id, id));
     });
@@ -216,19 +214,20 @@ export async function PATCH(request: Request) {
   }
 }
 
+// Handler PUT (tidak berubah)
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
     const { id, attachmentUrl } = z
       .object({
         id: z.number(),
-        attachmentUrl: z.string().optional().nullable(), // attachmentUrl bisa null
+        attachmentUrl: z.string().optional().nullable(),
       })
       .parse(body);
 
     const updatedTransaction = await db
       .update(transactions)
-      .set({ attachmentUrl: attachmentUrl || null }) // Pastikan null jika string kosong
+      .set({ attachmentUrl: attachmentUrl || null })
       .where(eq(transactions.id, id))
       .returning();
 
