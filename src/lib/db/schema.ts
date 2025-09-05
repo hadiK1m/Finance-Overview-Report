@@ -25,6 +25,7 @@ export const users = pgTable('users', {
   role: userRoleEnum('role').default('assistant_admin').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
 // Tabel untuk kategori (RKAP)
 export const categories = pgTable('categories', {
   id: serial('id').primaryKey(),
