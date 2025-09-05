@@ -9,7 +9,11 @@ import {
   integer,
   boolean,
   foreignKey,
+  pgEnum,
 } from 'drizzle-orm/pg-core';
+
+// === 2. Definisikan Enum untuk Role Pengguna ===
+export const userRoleEnum = pgEnum('user_role', ['admin', 'assistant_admin']);
 
 // Tabel untuk pengguna
 export const users = pgTable('users', {
@@ -17,9 +21,10 @@ export const users = pgTable('users', {
   fullName: varchar('full_name', { length: 256 }),
   email: varchar('email', { length: 256 }).notNull().unique(),
   password: text('password').notNull(),
+  // === 3. Tambahkan kolom role di sini ===
+  role: userRoleEnum('role').default('assistant_admin').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
-
 // Tabel untuk kategori (RKAP)
 export const categories = pgTable('categories', {
   id: serial('id').primaryKey(),

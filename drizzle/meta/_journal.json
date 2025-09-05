@@ -71,6 +71,13 @@
       "when": 1757059464451,
       "tag": "0009_unknown_rattler",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1757088612583,
+      "tag": "0010_free_sharon_ventura",
+      "breakpoints": true
     }
   ]
 }
