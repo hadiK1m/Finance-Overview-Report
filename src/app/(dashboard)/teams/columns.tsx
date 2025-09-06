@@ -13,16 +13,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+// === PERBARUI TIPE DATA DI SINI ===
 export type User = {
   id: number;
   fullName: string | null;
   email: string;
   role: 'admin' | 'assistant_admin';
+  avatarUrl: string | null; // <-- Tambahkan properti ini
   createdAt: string;
 };
 
 export const columns: ColumnDef<User>[] = [
-  // ... (kolom lain tetap sama)
+  // ... sisa kode tidak perlu diubah ...
   {
     accessorKey: 'fullName',
     header: 'Full Name',
@@ -79,19 +81,14 @@ export const columns: ColumnDef<User>[] = [
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-
-              {/* === LOGIKA 'disabled' DIPERBARUI DI SINI === */}
               <DropdownMenuItem
                 onClick={() => onChangeRole?.(user)}
-                // Opsi hanya dinonaktifkan jika pengguna yang login bukan admin
-                disabled={currentUser?.role !== 'admin'}
+                disabled={currentUser?.role !== 'admin' || isCurrentUser}
               >
                 Change Role
               </DropdownMenuItem>
-
               <DropdownMenuItem
                 className="text-red-600 focus:text-red-600"
-                // Opsi hapus tetap dinonaktifkan untuk diri sendiri
                 disabled={isCurrentUser}
               >
                 Delete User

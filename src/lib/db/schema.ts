@@ -21,8 +21,9 @@ export const users = pgTable('users', {
   fullName: varchar('full_name', { length: 256 }),
   email: varchar('email', { length: 256 }).notNull().unique(),
   password: text('password').notNull(),
-  // === 3. Tambahkan kolom role di sini ===
   role: userRoleEnum('role').default('assistant_admin').notNull(),
+  // === TAMBAHKAN KOLOM INI ===
+  avatarUrl: text('avatar_url'), // URL untuk foto profil
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
