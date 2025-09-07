@@ -1,201 +1,60 @@
-// src/app/(dashboard)/transactions/columns.tsx
-'use client';
+// src/middleware.ts
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { decrypt } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { users } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
-import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, Paperclip } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { User } from '../teams/columns'; // Impor tipe User yang sudah benar
+const PUBLIC_PATHS = ['/login', '/register'];
+const MEMBER_PATH = '/member';
 
-// Tipe ini sekarang diekspor dengan benar
-export type TransactionWithRelations = {
-  id: number;
-  date: string;
-  payee: string;
-  amount: number;
-  attachmentUrl: string | null;
-  createdAt: string;
-  categoryId: number;
-  itemId: number;
-  balanceSheetId: number | null;
-  category: { name: string } | null;
-  item: { name: string } | null;
-  balanceSheet: { name: string } | null;
-};
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
+  const token = request.cookies.get('session_token')?.value;
 
-// Nama fungsi diubah agar jelas dan diekspor
-export const getTransactionColumns = (
-  currentUser: User | null
-): ColumnDef<TransactionWithRelations>[] => {
-  const isVip = currentUser?.role === 'vip';
+  const session = token ? await decrypt(token) : null;
 
-  const columns: ColumnDef<TransactionWithRelations>[] = [
-    {
-      id: 'select',
-      header: ({ table }) => (
-        <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && 'indeterminate')
-          }
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
-      accessorKey: 'date',
-      header: 'Date',
-      cell: ({ row }) => (
-        <span>
-          {new Date(row.getValue('date')).toLocaleDateString('en-GB')}
-        </span>
-      ),
-      filterFn: (row, columnId, value) => {
-        const date = new Date(row.getValue(columnId));
-        const [start, end] = value as [Date, Date];
-        const startDate = new Date(start);
-        startDate.setHours(0, 0, 0, 0);
-        const endDate = new Date(end);
-        endDate.setHours(23, 59, 59, 999);
-        return date >= startDate && date <= endDate;
-      },
-    },
-    { accessorKey: 'category.name', header: 'RKAP Name' },
-    { accessorKey: 'item.name', header: 'Item' },
-    { accessorKey: 'payee', header: 'Payee' },
-    {
-      accessorKey: 'amount',
-      header: () => <div className="text-right">Amount</div>,
-      cell: ({ row }) => {
-        const amount = parseFloat(row.getValue('amount'));
-        const formatted = new Intl.NumberFormat('id-ID', {
-          style: 'currency',
-          currency: 'IDR',
-          minimumFractionDigits: 0,
-        }).format(amount);
-        return (
-          <div
-            className={`text-right font-medium ${
-              amount < 0 ? 'text-red-600' : 'text-green-600'
-            }`}
-          >
-            {formatted}
-          </div>
-        );
-      },
-    },
-    { accessorKey: 'balanceSheet.name', header: 'Balance Sheet' },
-    {
-      accessorKey: 'attachmentUrl',
-      header: 'Attachment',
-      cell: ({ row, table }) => {
-        const url = row.getValue('attachmentUrl') as string | null;
-        const transaction = row.original;
-        const { onUploadAttachment } = (table.options.meta as any) || {};
-
-        if (url) {
-          return (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center text-blue-600 hover:underline"
-            >
-              <Paperclip className="h-4 w-4 mr-1" />
-              Sudah PJ
-            </a>
-          );
-        }
-
-        if (isVip) {
-          return (
-            <span className="flex items-center text-red-600">
-              <Paperclip className="h-4 w-4 mr-1 text-red-500" />
-              Belum PJ
-            </span>
-          );
-        }
-
-        return (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-auto px-2 py-1 text-red-600 hover:text-red-700"
-            onClick={() => onUploadAttachment?.(transaction)}
-          >
-            <Paperclip className="h-4 w-4 mr-1 text-red-500" />
-            Belum PJ
-          </Button>
-        );
-      },
-    },
-    {
-      id: 'actions',
-      cell: ({ row, table }) => {
-        if (isVip) return null; // Sembunyikan seluruh sel aksi untuk VIP
-
-        const transaction = row.original;
-        const { onEdit } = (table.options.meta as any) || {};
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() =>
-                  navigator.clipboard.writeText(String(transaction.id))
-                }
-              >
-                Copy transaction ID
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onEdit?.(transaction)}>
-                Edit transaction
-              </DropdownMenuItem>
-              {transaction.attachmentUrl && (
-                <DropdownMenuItem asChild>
-                  <a
-                    href={transaction.attachmentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Download attachment
-                  </a>
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
-      },
-    },
-  ];
-
-  // Saring kolom berdasarkan peran pengguna
-  if (isVip) {
-    return columns.filter((col) => col.id !== 'select' && col.id !== 'actions');
+  // Aturan 1: Jika sudah login, jangan biarkan akses halaman login/register
+  if (isPublicPath && session) {
+    return NextResponse.redirect(new URL('/', request.url));
   }
-  return columns;
+
+  // Aturan 2: Jika belum login, paksa ke halaman login
+  if (!isPublicPath && !session) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // Aturan 3: Jika sudah login, periksa peran untuk pengalihan khusus
+  if (session) {
+    // === KEMBALI MENGGUNAKAN db.select() UNTUK STABILITAS ===
+    const [currentUser] = await db
+      .select({
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.id, session.userId))
+      .limit(1);
+
+    const userRole = currentUser?.role;
+
+    if (userRole === 'member') {
+      // Jika peran adalah 'member', hanya izinkan akses ke halaman /member
+      if (pathname !== MEMBER_PATH) {
+        return NextResponse.redirect(new URL(MEMBER_PATH, request.url));
+      }
+    } else {
+      // Jika peran BUKAN 'member', jangan biarkan akses ke halaman /member
+      if (pathname === MEMBER_PATH) {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+    }
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };

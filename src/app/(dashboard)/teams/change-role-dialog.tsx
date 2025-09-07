@@ -30,9 +30,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { User } from './columns';
+import { userRoleEnum } from '@/lib/db/schema'; // <-- Impor enum dari skema
 
+// Gunakan enum untuk skema agar otomatis sinkron
 const formSchema = z.object({
-  role: z.enum(['admin', 'assistant_admin']),
+  role: z.enum(userRoleEnum.enumValues),
 });
 
 interface ChangeRoleDialogProps {
@@ -64,9 +66,7 @@ export function ChangeRoleDialog({
     try {
       const response = await fetch('/api/users', {
         method: 'PATCH',
-        // === TAMBAHKAN OPSI INI ===
         credentials: 'include',
-        // ============================
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: user.id, ...values }),
       });
@@ -110,10 +110,16 @@ export function ChangeRoleDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="assistant_admin">
-                        Assistant Admin
-                      </SelectItem>
+                      {/* Render opsi secara dinamis dari enum */}
+                      {userRoleEnum.enumValues.map((role) => (
+                        <SelectItem
+                          key={role}
+                          value={role}
+                          className="capitalize"
+                        >
+                          {role.replace('_', ' ')}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
