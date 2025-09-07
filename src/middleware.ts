@@ -16,34 +16,28 @@ export async function middleware(request: NextRequest) {
 
   const session = token ? await decrypt(token) : null;
 
-  // Aturan 1: Jika sudah login, jangan biarkan akses halaman login/register
   if (isPublicPath && session) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // Aturan 2: Jika belum login, paksa ke halaman login
   if (!isPublicPath && !session) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Aturan 3: Jika sudah login, periksa peran untuk pengalihan khusus
   if (session) {
-    const currentUser = await db.query.users.findFirst({
-      columns: {
-        role: true,
-      },
-      where: eq(users.id, session.userId),
-    });
+    const [currentUser] = await db
+      .select({ role: users.role })
+      .from(users)
+      .where(eq(users.id, session.userId))
+      .limit(1);
 
     const userRole = currentUser?.role;
 
     if (userRole === 'member') {
-      // Jika peran adalah 'member', hanya izinkan akses ke halaman /member
       if (pathname !== MEMBER_PATH) {
         return NextResponse.redirect(new URL(MEMBER_PATH, request.url));
       }
     } else {
-      // Jika peran BUKAN 'member', jangan biarkan akses ke halaman /member
       if (pathname === MEMBER_PATH) {
         return NextResponse.redirect(new URL('/', request.url));
       }
