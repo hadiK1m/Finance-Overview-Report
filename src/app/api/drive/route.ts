@@ -1,12 +1,26 @@
 // src/app/api/drive/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { driveItems } from '@/lib/db/schema';
+import { driveItems, users } from '@/lib/db/schema';
 import { decrypt } from '@/lib/auth';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull, desc } from 'drizzle-orm';
 import * as z from 'zod';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
+
+// Helper untuk mendapatkan sesi dan peran pengguna
+async function getUserSession(request: NextRequest) {
+  const token = request.cookies.get('session_token')?.value;
+  if (!token) return null;
+
+  const session = await decrypt(token);
+  if (!session?.userId) return null;
+
+  return await db.query.users.findFirst({
+    where: eq(users.id, session.userId),
+    columns: { id: true, role: true },
+  });
+}
 
 const folderSchema = z.object({
   name: z.string().min(1, 'Folder name is required'),
@@ -20,23 +34,22 @@ const fileSchema = z.object({
   parentId: z.number().nullable().optional(),
 });
 
-// Handler untuk mengambil semua item drive (file dan folder)
-export async function GET(request: Request) {
-  const token = request.headers
-    .get('cookie')
-    ?.split('session_token=')[1]
-    ?.split(';')[0];
-  if (!token) {
+// Handler untuk mengambil item drive (file dan folder)
+export async function GET(request: NextRequest) {
+  const user = await getUserSession(request);
+  if (!user) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-  const session = await decrypt(token);
-  if (!session?.userId) {
-    return NextResponse.json({ message: 'Invalid token' }, { status: 401 });
   }
 
   try {
+    // Tentukan kondisi filter di luar query
+    const whereCondition =
+      user.role === 'admin'
+        ? undefined // Admin tidak memiliki filter, bisa melihat semua
+        : eq(driveItems.userId, user.id); // User lain hanya bisa melihat miliknya
+
     const items = await db.query.driveItems.findMany({
-      where: eq(driveItems.userId, session.userId),
+      where: whereCondition,
       orderBy: (driveItems, { desc }) => [desc(driveItems.modifiedAt)],
     });
     return NextResponse.json(items, { status: 200 });
@@ -49,17 +62,10 @@ export async function GET(request: Request) {
 }
 
 // Handler untuk membuat folder atau menyimpan metadata file
-export async function POST(request: Request) {
-  const token = request.headers
-    .get('cookie')
-    ?.split('session_token=')[1]
-    ?.split(';')[0];
-  if (!token) {
+export async function POST(request: NextRequest) {
+  const user = await getUserSession(request);
+  if (!user) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-  const session = await decrypt(token);
-  if (!session?.userId) {
-    return NextResponse.json({ message: 'Invalid token' }, { status: 401 });
   }
 
   try {
@@ -74,7 +80,7 @@ export async function POST(request: Request) {
           name,
           type: 'folder',
           parentId,
-          userId: session.userId,
+          userId: user.id,
         })
         .returning();
       return NextResponse.json(newFolder[0], { status: 201 });
@@ -90,7 +96,7 @@ export async function POST(request: Request) {
           path,
           size,
           parentId,
-          userId: session.userId,
+          userId: user.id,
         })
         .returning();
       return NextResponse.json(newFile[0], { status: 201 });
@@ -114,17 +120,11 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
-  const token = request.headers
-    .get('cookie')
-    ?.split('session_token=')[1]
-    ?.split(';')[0];
-  if (!token) {
+// Handler untuk menghapus item
+export async function DELETE(request: NextRequest) {
+  const user = await getUserSession(request);
+  if (!user) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-  const session = await decrypt(token);
-  if (!session?.userId) {
-    return NextResponse.json({ message: 'Invalid token' }, { status: 401 });
   }
 
   try {
@@ -136,19 +136,24 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // Cari item yang akan dihapus
     const itemToDelete = await db.query.driveItems.findFirst({
-      where: and(eq(driveItems.id, id), eq(driveItems.userId, session.userId)),
+      where: eq(driveItems.id, id),
     });
 
     if (!itemToDelete) {
+      return NextResponse.json({ message: 'Item not found.' }, { status: 404 });
+    }
+
+    // Periksa hak akses: admin boleh hapus apa saja, user lain hanya miliknya
+    if (user.role !== 'admin' && itemToDelete.userId !== user.id) {
       return NextResponse.json(
-        { message: 'Item not found or you do not have permission.' },
-        { status: 404 }
+        {
+          message: 'Forbidden: You do not have permission to delete this item.',
+        },
+        { status: 403 }
       );
     }
 
-    // Jika ini adalah file, hapus juga file fisiknya
     if (itemToDelete.type === 'file' && itemToDelete.path) {
       try {
         const filePath = join(process.cwd(), 'public', itemToDelete.path);
@@ -160,7 +165,6 @@ export async function DELETE(request: Request) {
       }
     }
 
-    // Hapus item dari database (cascade akan menghapus children jika ini folder)
     await db.delete(driveItems).where(eq(driveItems.id, id));
 
     return NextResponse.json(

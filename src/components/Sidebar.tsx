@@ -1,7 +1,7 @@
 // src/components/Sidebar.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react'; // Impor useState
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -19,7 +19,7 @@ import {
   ArrowLeftRight,
   LogOut,
   WalletCards,
-  Loader2, // 1. Impor ikon Loader2
+  Loader2,
 } from 'lucide-react';
 import Image from 'next/image';
 import { User } from '@/app/(dashboard)/teams/columns';
@@ -27,6 +27,7 @@ import { User } from '@/app/(dashboard)/teams/columns';
 interface SidebarProps {
   isOpen: boolean;
   toggle: () => void;
+  setIsPageLoading: (isLoading: boolean) => void;
 }
 
 const NavItem = ({
@@ -34,11 +35,13 @@ const NavItem = ({
   icon,
   children,
   isOpen,
+  onClick,
 }: {
   href: string;
   icon: React.ReactNode;
   children: React.ReactNode;
   isOpen: boolean;
+  onClick: () => void;
 }) => {
   const pathname = usePathname();
   const isActive = pathname === href;
@@ -46,6 +49,7 @@ const NavItem = ({
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
         isActive
           ? 'bg-white text-gray-900 shadow-sm'
@@ -95,12 +99,15 @@ const CollapsibleSection = ({
   );
 };
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  isOpen,
+  toggle,
+  setIsPageLoading,
+}) => {
   const router = useRouter();
-  const [isLoggingOut, setIsLoggingOut] = useState(false); // 2. Tambahkan state loading
-  const [currentUser, setCurrentUser] = useState<User | null>(null); // State untuk data pengguna
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // Ambil data pengguna saat komponen dimuat
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -118,21 +125,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
     fetchUser();
   }, []);
 
-  // 3. Perbarui fungsi handleLogout
   const handleLogout = async () => {
-    setIsLoggingOut(true); // Atur loading menjadi true
+    setIsLoggingOut(true);
     try {
       const response = await fetch('/api/auth/logout', { method: 'POST' });
       if (response.ok) {
         router.push('/login');
-        // Tidak perlu set loading ke false karena komponen akan unmount
       } else {
         console.error('Failed to logout');
-        setIsLoggingOut(false); // Reset jika gagal
+        setIsLoggingOut(false);
       }
     } catch (error) {
       console.error('An error occurred during logout:', error);
-      setIsLoggingOut(false); // Reset jika ada error
+      setIsLoggingOut(false);
     }
   };
 
@@ -142,7 +147,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
         isOpen ? 'w-64 p-4 space-y-4' : 'w-20 p-2 space-y-2'
       }`}
     >
-      {/* ... (Konten Sidebar lainnya tidak berubah) ... */}
       <div
         className={`flex items-center ${
           isOpen ? 'justify-between' : 'justify-center'
@@ -156,11 +160,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
           {isOpen && (
             <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 p-1">
               <Image
-                src="/logo-pln.svg"
+                src={currentUser?.avatarUrl || '/logo-pln.svg'}
                 alt="Logo PLN"
                 width={32}
                 height={32}
-                className="object-contain"
+                className="object-cover rounded-md"
+                key={currentUser?.avatarUrl}
               />
             </div>
           )}
@@ -170,7 +175,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
               <p className="font-semibold text-sm truncate">
                 {currentUser?.fullName || 'Loading...'}
               </p>
-              <p className="text-xs text-gray-500 truncate">DEKOM DASHBOARD</p>
+              <p className="text-xs text-gray-500 truncate">
+                {currentUser?.email || ''}
+              </p>
             </div>
           )}
         </div>
@@ -211,6 +218,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
             href="/"
             icon={<HomeIcon className="w-5 h-5" />}
             isOpen={isOpen}
+            onClick={() => setIsPageLoading(true)}
           >
             Home
           </NavItem>
@@ -218,6 +226,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
             href="/categories"
             icon={<ChartBarStacked className="w-5 h-5" />}
             isOpen={isOpen}
+            onClick={() => setIsPageLoading(true)}
           >
             Categories
           </NavItem>
@@ -225,6 +234,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
             href="/items"
             icon={<ListCollapse className="w-5 h-5" />}
             isOpen={isOpen}
+            onClick={() => setIsPageLoading(true)}
           >
             Items
           </NavItem>
@@ -232,6 +242,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
             href="/transactions"
             icon={<ArrowLeftRight className="w-5 h-5" />}
             isOpen={isOpen}
+            onClick={() => setIsPageLoading(true)}
           >
             Transactions
           </NavItem>
@@ -239,6 +250,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
             href="/balancesheet"
             icon={<WalletCards className="w-5 h-5" />}
             isOpen={isOpen}
+            onClick={() => setIsPageLoading(true)}
           >
             Cash & Balance
           </NavItem>
@@ -246,6 +258,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
             href="/drive"
             icon={<CloudUpload className="w-5 h-5" />}
             isOpen={isOpen}
+            onClick={() => setIsPageLoading(true)}
           >
             D Drive
           </NavItem>
@@ -261,6 +274,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
               href="/teams"
               icon={<UsersIcon className="w-5 h-5" />}
               isOpen={isOpen}
+              onClick={() => setIsPageLoading(true)}
             >
               Teams
             </NavItem>
@@ -277,6 +291,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
               href="/settings"
               icon={<SettingsIcon className="w-5 h-5" />}
               isOpen={isOpen}
+              onClick={() => setIsPageLoading(true)}
             >
               Settings
             </NavItem>
@@ -290,13 +305,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
             href="/"
             icon={<TrelloIcon className="w-5 h-5" />}
             isOpen={isOpen}
+            onClick={() => setIsPageLoading(true)}
           >
             DEKOM
           </NavItem>
         </CollapsibleSection>
       </div>
 
-      {/* 4. Perbarui tombol Logout */}
       <div className="border-t border-gray-200/80 pt-2">
         <button
           onClick={handleLogout}

@@ -1,13 +1,25 @@
 // src/app/api/users/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { users, userRoleEnum } from '@/lib/db/schema';
-import { desc, eq, and } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import * as z from 'zod';
 import { decrypt } from '@/lib/auth';
-import { NextRequest } from 'next/server';
 
-// Skema untuk validasi update role
+// Helper untuk mendapatkan sesi pengguna
+async function getUserSession(request: NextRequest) {
+  const token = request.cookies.get('session_token')?.value;
+  if (!token) return null;
+
+  const session = await decrypt(token);
+  if (!session?.userId) return null;
+
+  return await db.query.users.findFirst({
+    where: eq(users.id, session.userId),
+    columns: { id: true, role: true },
+  });
+}
+
 const updateUserRoleSchema = z.object({
   id: z.number(),
   role: z.enum(userRoleEnum.enumValues),
@@ -16,7 +28,6 @@ const updateUserRoleSchema = z.object({
 // Handler untuk GET (mengambil semua pengguna)
 export async function GET() {
   try {
-    // Di masa depan, Anda mungkin ingin membatasi ini hanya untuk admin
     const allUsers = await db
       .select({
         id: users.id,
@@ -38,23 +49,9 @@ export async function GET() {
   }
 }
 
-// Handler PATCH untuk mengubah role
-
-export async function PATCH(request: Request) {
-  const token = (request as NextRequest).cookies.get('session_token')?.value;
-  if (!token) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
-  const session = await decrypt(token);
-  if (!session?.userId) {
-    return NextResponse.json({ message: 'Invalid token' }, { status: 401 });
-  }
-
-  const adminUser = await db.query.users.findFirst({
-    where: eq(users.id, session.userId),
-  });
-
+// Handler untuk PATCH (mengubah peran pengguna)
+export async function PATCH(request: NextRequest) {
+  const adminUser = await getUserSession(request);
   if (adminUser?.role !== 'admin') {
     return NextResponse.json(
       { message: 'Forbidden: Admins only.' },
@@ -65,8 +62,6 @@ export async function PATCH(request: Request) {
   try {
     const body = await request.json();
     const { id, role } = updateUserRoleSchema.parse(body);
-
-    // === BARIS KODE YANG MELARANG PENGEDITAN DIRI SENDIRI TELAH DIHAPUS DARI SINI ===
 
     const updatedUser = await db
       .update(users)
@@ -94,6 +89,55 @@ export async function PATCH(request: Request) {
     console.error('API PATCH Error (users):', error);
     return NextResponse.json(
       { message: 'Failed to update user role.' },
+      { status: 500 }
+    );
+  }
+}
+
+// Handler untuk DELETE (menghapus pengguna)
+export async function DELETE(request: NextRequest) {
+  const adminUser = await getUserSession(request);
+  if (adminUser?.role !== 'admin') {
+    return NextResponse.json(
+      { message: 'Forbidden: Admins only.' },
+      { status: 403 }
+    );
+  }
+
+  try {
+    const body = await request.json();
+    const { id: userIdToDelete } = z.object({ id: z.number() }).parse(body);
+
+    if (userIdToDelete === adminUser.id) {
+      return NextResponse.json(
+        { message: 'Admin cannot delete their own account.' },
+        { status: 400 }
+      );
+    }
+
+    const deletedUser = await db
+      .delete(users)
+      .where(eq(users.id, userIdToDelete))
+      .returning();
+
+    if (deletedUser.length === 0) {
+      return NextResponse.json({ message: 'User not found.' }, { status: 404 });
+    }
+
+    return NextResponse.json(
+      { message: 'User deleted successfully.' },
+      { status: 200 }
+    );
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { message: error.issues[0].message },
+        { status: 400 }
+      );
+    }
+    console.error('API DELETE Error (users):', error);
+    return NextResponse.json(
+      { message: 'Failed to delete user.' },
       { status: 500 }
     );
   }

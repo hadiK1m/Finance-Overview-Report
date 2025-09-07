@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { decrypt } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { db } from '@/lib/db/middleware-db'; // Penggunaan middleware-db sudah benar
 import { users } from './lib/db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -50,3 +50,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };
+
+// Tambahkan baris ini di akhir file
+export const runtime = 'nodejs';
