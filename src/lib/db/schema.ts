@@ -12,7 +12,7 @@ import {
   pgEnum,
 } from 'drizzle-orm/pg-core';
 
-// 1. Perbarui enum dengan role baru
+// Enum untuk Role Pengguna
 export const userRoleEnum = pgEnum('user_role', [
   'admin',
   'assistant_admin',
@@ -26,13 +26,12 @@ export const users = pgTable('users', {
   fullName: varchar('full_name', { length: 256 }),
   email: varchar('email', { length: 256 }).notNull().unique(),
   password: text('password').notNull(),
-  // 2. Ganti role default menjadi 'member'
   role: userRoleEnum('role').default('member').notNull(),
   avatarUrl: text('avatar_url'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-// ... (tabel categories, items, balanceSheet tidak berubah) ...
+// Tabel untuk kategori (RKAP)
 export const categories = pgTable('categories', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 256 }).notNull(),
@@ -41,6 +40,7 @@ export const categories = pgTable('categories', {
   editedAt: timestamp('edited_at').$onUpdate(() => new Date()),
 });
 
+// Tabel untuk item
 export const items = pgTable('items', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 256 }).notNull(),
@@ -51,6 +51,7 @@ export const items = pgTable('items', {
   editedAt: timestamp('edited_at').$onUpdate(() => new Date()),
 });
 
+// Tabel untuk neraca (Balance Sheet)
 export const balanceSheet = pgTable('balance_sheet', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 256 }).notNull(),
@@ -76,56 +77,13 @@ export const transactions = pgTable('transactions', {
     { onDelete: 'set null' }
   ),
   attachmentUrl: text('attachment_url'),
-  // 3. Tambahkan kolom userId untuk melacak pembuat transaksi
   userId: integer('user_id').references(() => users.id, {
     onDelete: 'set null',
   }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-// ... (Relasi categories, items tidak berubah) ...
-export const categoriesRelations = relations(categories, ({ many }) => ({
-  items: many(items),
-  transactions: many(transactions),
-}));
-
-export const itemsRelations = relations(items, ({ one, many }) => ({
-  category: one(categories, {
-    fields: [items.categoryId],
-    references: [categories.id],
-  }),
-  transactions: many(transactions),
-}));
-
-// Perbarui relasi transaksi
-export const transactionsRelations = relations(transactions, ({ one }) => ({
-  category: one(categories, {
-    fields: [transactions.categoryId],
-    references: [categories.id],
-  }),
-  item: one(items, {
-    fields: [transactions.itemId],
-    references: [items.id],
-  }),
-  balanceSheet: one(balanceSheet, {
-    fields: [transactions.balanceSheetId],
-    references: [balanceSheet.id],
-  }),
-  // 4. Tambahkan relasi ke user
-  user: one(users, {
-    fields: [transactions.userId],
-    references: [users.id],
-  }),
-}));
-
-// Perbarui relasi pengguna
-export const usersRelations = relations(users, ({ many }) => ({
-  driveItems: many(driveItems),
-  // 5. Tambahkan relasi ke transactions
-  transactions: many(transactions),
-}));
-
-// Tabel driveItems (tidak berubah)
+// Tabel untuk menyimpan file dan folder di drive
 export const driveItems = pgTable(
   'drive_items',
   {
@@ -153,6 +111,45 @@ export const driveItems = pgTable(
     };
   }
 );
+
+// === DEFINISI RELASI ANTAR TABEL ===
+
+export const usersRelations = relations(users, ({ many }) => ({
+  driveItems: many(driveItems),
+  transactions: many(transactions),
+}));
+
+export const categoriesRelations = relations(categories, ({ many }) => ({
+  items: many(items),
+  transactions: many(transactions),
+}));
+
+export const itemsRelations = relations(items, ({ one, many }) => ({
+  category: one(categories, {
+    fields: [items.categoryId],
+    references: [categories.id],
+  }),
+  transactions: many(transactions),
+}));
+
+export const transactionsRelations = relations(transactions, ({ one }) => ({
+  category: one(categories, {
+    fields: [transactions.categoryId],
+    references: [categories.id],
+  }),
+  item: one(items, {
+    fields: [transactions.itemId],
+    references: [items.id],
+  }),
+  balanceSheet: one(balanceSheet, {
+    fields: [transactions.balanceSheetId],
+    references: [balanceSheet.id],
+  }),
+  user: one(users, {
+    fields: [transactions.userId],
+    references: [users.id],
+  }),
+}));
 
 export const driveItemsRelations = relations(driveItems, ({ one, many }) => ({
   user: one(users, {

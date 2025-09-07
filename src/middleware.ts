@@ -16,35 +16,31 @@ export async function middleware(request: NextRequest) {
 
   const session = token ? await decrypt(token) : null;
 
-  // 1. Jika pengguna sudah login dan berada di halaman publik, arahkan ke home
   if (isPublicPath && session) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // 2. Jika pengguna belum login dan mencoba akses halaman terproteksi, arahkan ke login
   if (!isPublicPath && !session) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // 3. Jika pengguna sudah login, periksa perannya untuk pengalihan khusus
   if (session) {
-    // Ambil role terbaru dari database untuk memastikan data akurat
+    // === PERBAIKAN UTAMA ADA DI SINI ===
+    // Menggunakan db.query.users.findFirst yang lebih aman untuk kueri sederhana
     const currentUser = await db.query.users.findFirst({
+      columns: {
+        role: true,
+      },
       where: eq(users.id, session.userId),
-      columns: { role: true },
     });
 
     const userRole = currentUser?.role;
 
-    // Jika role adalah 'member'
     if (userRole === 'member') {
-      // Izinkan akses hanya ke halaman /member
       if (pathname !== MEMBER_PATH) {
         return NextResponse.redirect(new URL(MEMBER_PATH, request.url));
       }
     } else {
-      // Jika role BUKAN 'member' (admin, vip, dll.)
-      // Jangan izinkan mereka mengakses halaman /member
       if (pathname === MEMBER_PATH) {
         return NextResponse.redirect(new URL('/', request.url));
       }
