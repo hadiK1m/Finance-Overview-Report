@@ -85,6 +85,13 @@
       "when": 1757093072716,
       "tag": "0011_condemned_shape",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1757227859437,
+      "tag": "0012_pale_violations",
+      "breakpoints": true
     }
   ]
 }

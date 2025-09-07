@@ -5,7 +5,6 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -18,7 +17,8 @@ import {
 } from '@/components/ui/form';
 import { User } from '@/app/(dashboard)/teams/columns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, Upload } from 'lucide-react';
+import { Loader2, Mail } from 'lucide-react';
+import { Section } from './section'; // Impor komponen Section
 
 const profileFormSchema = z.object({
   fullName: z
@@ -33,13 +33,6 @@ interface ProfileFormProps {
 
 export function ProfileForm({ user, onProfileUpdate }: ProfileFormProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [success, setSuccess] = React.useState<string | null>(null);
-  const [avatarFile, setAvatarFile] = React.useState<File | null>(null);
-
-  // State ini sekarang hanya untuk preview SEBELUM submit
-  const [avatarPreview, setAvatarPreview] = React.useState<string | null>(null);
-
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof profileFormSchema>>({
@@ -49,68 +42,65 @@ export function ProfileForm({ user, onProfileUpdate }: ProfileFormProps) {
     },
   });
 
-  // === PERBAIKAN UTAMA ADA DI SINI ===
   React.useEffect(() => {
-    // Efek ini akan berjalan setiap kali 'user' prop dari parent berubah
     if (user) {
       form.reset({ fullName: user.fullName || '' });
-      // Selalu set preview ke URL dari database saat user prop diperbarui
-      setAvatarPreview(user.avatarUrl || null);
     }
-  }, [user]); // Hanya bergantung pada 'user'
+  }, [user, form]);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChangeAndUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
-    if (file) {
-      setAvatarFile(file);
-      // Tampilkan preview instan dari file yang baru dipilih
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+    if (!file) return;
 
-  async function onSubmit(values: z.infer<typeof profileFormSchema>) {
     setIsSubmitting(true);
-    setError(null);
-    setSuccess(null);
-
-    let updatedAvatarUrl = user?.avatarUrl || null;
-
     try {
-      if (avatarFile) {
-        const formData = new FormData();
-        formData.append('file', avatarFile);
-        const uploadResponse = await fetch('/api/upload?destination=avatars', {
-          method: 'POST',
-          body: formData,
-        });
-        const uploadResult = await uploadResponse.json();
-        if (!uploadResult.success) throw new Error('Avatar upload failed.');
-        updatedAvatarUrl = uploadResult.url;
-      }
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploadResponse = await fetch('/api/upload?destination=avatars', {
+        method: 'POST',
+        body: formData,
+      });
+      const uploadResult = await uploadResponse.json();
+      if (!uploadResult.success) throw new Error('Avatar upload failed.');
 
       const response = await fetch('/api/account', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'profile',
-          fullName: values.fullName,
-          avatarUrl: updatedAvatarUrl,
+          fullName: user?.fullName, // Kirim nama yang ada
+          avatarUrl: uploadResult.url,
         }),
       });
-
-      const result = await response.json();
-      if (!response.ok)
-        throw new Error(result.message || 'Failed to update profile.');
-
-      setSuccess(result.message);
-      setAvatarFile(null); // Reset file yang dipilih setelah berhasil
-      onProfileUpdate(); // Panggil callback untuk refresh data di parent
+      if (!response.ok) throw new Error('Failed to save new avatar.');
+      onProfileUpdate(); // Refresh data untuk menampilkan avatar baru
     } catch (err: any) {
-      setError(err.message);
+      console.error(err);
+      // Tambahkan notifikasi error jika perlu
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  async function onSubmit(values: z.infer<typeof profileFormSchema>) {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'profile',
+          fullName: values.fullName,
+          avatarUrl: user?.avatarUrl, // Kirim avatarUrl yang ada
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to update profile.');
+      onProfileUpdate();
+      alert('Profile saved successfully!');
+    } catch (err: any) {
+      console.error(err);
     } finally {
       setIsSubmitting(false);
     }
@@ -118,45 +108,52 @@ export function ProfileForm({ user, onProfileUpdate }: ProfileFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
-        <CardContent className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <Section title="Profile picture" description="PNG, JPEG under 15MB">
           <div className="flex items-center space-x-4">
             <Avatar className="h-20 w-20">
-              {/* Gunakan avatarPreview untuk src, yang sekarang selalu sinkron dengan data terbaru */}
               <AvatarImage
-                src={avatarPreview || undefined}
-                key={avatarPreview}
+                src={user?.avatarUrl || undefined}
+                key={user?.avatarUrl}
               />
-              <AvatarFallback className="text-2xl">
+              <AvatarFallback className="text-xl">
                 {user?.fullName?.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div className="space-y-2">
+            <div className="flex items-center space-x-3">
               <input
                 type="file"
                 ref={fileInputRef}
-                onChange={handleFileChange}
+                onChange={handleFileChangeAndUpload}
                 className="hidden"
-                accept="image/png, image/jpeg, image/gif"
+                accept="image/*"
               />
               <Button
                 type="button"
+                variant="outline"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={isSubmitting}
               >
-                <Upload className="mr-2 h-4 w-4" /> Change Photo
+                Upload new picture
               </Button>
-              <p className="text-xs text-muted-foreground">
-                JPG, GIF or PNG. 1MB max.
-              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-red-600 hover:text-red-700"
+                disabled
+              >
+                Delete
+              </Button>
             </div>
           </div>
+        </Section>
 
+        <Section title="Full name" description="">
           <FormField
             control={form.control}
             name="fullName"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Full Name</FormLabel>
                 <FormControl>
                   <Input placeholder="Your full name" {...field} />
                 </FormControl>
@@ -164,28 +161,29 @@ export function ProfileForm({ user, onProfileUpdate }: ProfileFormProps) {
               </FormItem>
             )}
           />
-          <FormItem>
-            <FormLabel>Email</FormLabel>
-            <Input type="email" value={user?.email || ''} disabled />
-            <p className="text-xs text-muted-foreground">
-              Email address cannot be changed.
-            </p>
-          </FormItem>
-        </CardContent>
-        <CardFooter className="border-t px-6 py-4 justify-between items-center">
-          <div>
-            {error && (
-              <p className="text-sm font-medium text-destructive">{error}</p>
-            )}
-            {success && (
-              <p className="text-sm font-medium text-green-600">{success}</p>
-            )}
+        </Section>
+
+        <Section
+          title="Contact email"
+          description="Manage your account's email address for the invoices."
+        >
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="email"
+              value={user?.email || ''}
+              disabled
+              className="pl-9"
+            />
           </div>
+        </Section>
+
+        <div className="flex justify-end pt-4">
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Changes
           </Button>
-        </CardFooter>
+        </div>
       </form>
     </Form>
   );

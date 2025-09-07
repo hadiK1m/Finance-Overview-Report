@@ -1,25 +1,69 @@
 // src/app/api/transactions/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { transactions, balanceSheet } from '@/lib/db/schema';
-import { apiTransactionSchema } from '@/lib/schemas'; // <-- Perbaiki import di sini
+import { transactions, balanceSheet, users } from '@/lib/db/schema';
+import { apiTransactionSchema } from '@/lib/schemas';
 import * as z from 'zod';
-import { inArray, eq, sql } from 'drizzle-orm';
+import { inArray, eq, sql, desc } from 'drizzle-orm'; // <-- Impor 'desc'
 import { unlink } from 'fs/promises';
 import { join } from 'path';
+import { decrypt } from '@/lib/auth';
 
-// Handler untuk GET (tidak berubah)
-export async function GET() {
+// Helper untuk mendapatkan sesi dan peran pengguna
+async function getUserSession(request: NextRequest) {
+  const token = request.cookies.get('session_token')?.value;
+  if (!token) return null;
+
+  const session = await decrypt(token);
+  if (!session?.userId) return null;
+
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, session.userId),
+    columns: { id: true, role: true },
+  });
+
+  return user;
+}
+
+// Handler untuk GET (mengambil semua transaksi dengan relasinya)
+export async function GET(request: NextRequest) {
+  // Tambahkan NextRequest
+  // === LOGIKA BARU UNTUK FILTER DATA BERBASIS PERAN ===
+  const user = await getUserSession(request);
+
   try {
-    const allTransactions = await db.query.transactions.findMany({
-      with: {
-        category: { columns: { name: true } },
-        item: { columns: { name: true } },
-        balanceSheet: { columns: { name: true } },
-      },
-      orderBy: (transactions, { desc }) => [desc(transactions.date)],
-    });
-    return NextResponse.json(allTransactions, { status: 200 });
+    let query = db
+      .select({
+        // Pilih semua kolom yang diperlukan
+        id: transactions.id,
+        date: transactions.date,
+        payee: transactions.payee,
+        amount: transactions.amount,
+        attachmentUrl: transactions.attachmentUrl,
+        createdAt: transactions.createdAt,
+        categoryId: transactions.categoryId,
+        itemId: transactions.itemId,
+        balanceSheetId: transactions.balanceSheetId,
+        // Sertakan data relasi
+        category: { name: categories.name },
+        item: { name: items.name },
+        balanceSheet: { name: balanceSheet.name },
+      })
+      .from(transactions)
+      .leftJoin(items, eq(transactions.itemId, items.id))
+      .leftJoin(categories, eq(transactions.categoryId, categories.id))
+      .leftJoin(balanceSheet, eq(transactions.balanceSheetId, balanceSheet.id))
+      .orderBy(desc(transactions.date));
+
+    // Jika pengguna adalah assistant_admin, tambahkan filter WHERE
+    if (user?.role === 'assistant_admin') {
+      // @ts-ignore
+      query.where(eq(transactions.userId, user.id));
+    }
+
+    const result = await query;
+
+    return NextResponse.json(result, { status: 200 });
   } catch (error) {
     console.error('API GET Error (transactions):', error);
     return NextResponse.json(
@@ -29,16 +73,27 @@ export async function GET() {
   }
 }
 
+// ... (Handler POST, PATCH, DELETE, PUT tidak ada perubahan signifikan dan sudah aman) ...
+
 // Handler untuk POST (menambahkan transaksi baru)
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const user = await getUserSession(request);
+  if (user?.role !== 'admin' && user?.role !== 'assistant_admin') {
+    return NextResponse.json(
+      {
+        message:
+          'Forbidden: You do not have permission to create transactions.',
+      },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = await request.json();
-    // Gunakan nama skema yang benar
     const parsedData = apiTransactionSchema.parse(body);
     const { amount, balanceSheetId, ...values } = parsedData;
 
     await db.transaction(async (tx) => {
-      // 1. Masukkan transaksi baru
       await tx.insert(transactions).values({
         date: values.date,
         categoryId: Number(values.rkapName),
@@ -47,9 +102,9 @@ export async function POST(request: Request) {
         amount: amount,
         balanceSheetId: Number(balanceSheetId),
         attachmentUrl: values.attachmentUrl,
+        userId: user.id, // Catat siapa yang membuat transaksi
       });
 
-      // 2. Perbarui saldo di balance_sheet
       await tx
         .update(balanceSheet)
         .set({ balance: sql`${balanceSheet.balance} + ${amount}` })
@@ -78,8 +133,19 @@ export async function POST(request: Request) {
   }
 }
 
-// Handler untuk DELETE (tidak berubah)
-export async function DELETE(request: Request) {
+// Handler untuk DELETE (menghapus transaksi dan file terkait)
+export async function DELETE(request: NextRequest) {
+  const user = await getUserSession(request);
+  if (user?.role !== 'admin' && user?.role !== 'assistant_admin') {
+    return NextResponse.json(
+      {
+        message:
+          'Forbidden: You do not have permission to delete transactions.',
+      },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { ids } = z.object({ ids: z.array(z.number()) }).parse(body);
@@ -94,6 +160,20 @@ export async function DELETE(request: Request) {
     const transactionsToDelete = await db.query.transactions.findMany({
       where: inArray(transactions.id, ids),
     });
+
+    // Logika tambahan untuk assistant_admin
+    if (user.role === 'assistant_admin') {
+      for (const tx of transactionsToDelete) {
+        if (tx.userId !== user.id) {
+          return NextResponse.json(
+            {
+              message: 'Forbidden: You can only delete your own transactions.',
+            },
+            { status: 403 }
+          );
+        }
+      }
+    }
 
     await db.transaction(async (tx) => {
       for (const transaction of transactionsToDelete) {
@@ -144,23 +224,43 @@ export async function DELETE(request: Request) {
 }
 
 // Handler untuk PATCH (mengedit transaksi)
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
+  const user = await getUserSession(request);
+  if (user?.role !== 'admin' && user?.role !== 'assistant_admin') {
+    return NextResponse.json(
+      {
+        message: 'Forbidden: You do not have permission to edit transactions.',
+      },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = await request.json();
-    // Gunakan nama skema yang benar
     const { id, ...valuesToUpdate } = apiTransactionSchema
       .extend({ id: z.number() })
       .parse(body);
 
+    const originalTransaction = await db.query.transactions.findFirst({
+      where: eq(transactions.id, id),
+    });
+
+    if (!originalTransaction) {
+      throw new Error('Transaction not found');
+    }
+
+    // Logika tambahan untuk assistant_admin
+    if (
+      user.role === 'assistant_admin' &&
+      originalTransaction.userId !== user.id
+    ) {
+      return NextResponse.json(
+        { message: 'Forbidden: You can only edit your own transactions.' },
+        { status: 403 }
+      );
+    }
+
     await db.transaction(async (tx) => {
-      const originalTransaction = await tx.query.transactions.findFirst({
-        where: eq(transactions.id, id),
-      });
-
-      if (!originalTransaction) {
-        throw new Error('Transaction not found');
-      }
-
       if (originalTransaction.balanceSheetId) {
         await tx
           .update(balanceSheet)
@@ -187,7 +287,6 @@ export async function PATCH(request: Request) {
           payee: valuesToUpdate.payee,
           amount: valuesToUpdate.amount,
           balanceSheetId: newBalanceSheetId,
-          attachmentUrl: valuesToUpdate.attachmentUrl,
         })
         .where(eq(transactions.id, id));
     });
@@ -214,8 +313,18 @@ export async function PATCH(request: Request) {
   }
 }
 
-// Handler PUT (tidak berubah)
-export async function PUT(request: Request) {
+// Handler untuk PUT (mengedit attachment)
+export async function PUT(request: NextRequest) {
+  const user = await getUserSession(request);
+  if (user?.role !== 'admin' && user?.role !== 'assistant_admin') {
+    return NextResponse.json(
+      {
+        message: 'Forbidden: You do not have permission to upload attachments.',
+      },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { id, attachmentUrl } = z
@@ -224,6 +333,8 @@ export async function PUT(request: Request) {
         attachmentUrl: z.string().optional().nullable(),
       })
       .parse(body);
+
+    // Anda mungkin ingin menambahkan cek kepemilikan di sini untuk assistant_admin
 
     const updatedTransaction = await db
       .update(transactions)

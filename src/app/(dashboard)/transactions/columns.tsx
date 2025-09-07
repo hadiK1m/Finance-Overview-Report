@@ -1,186 +1,105 @@
-// src/app/(dashboard)/transactions/columns.tsx
+// src/app/(dashboard)/teams/columns.tsx
 'use client';
 
 import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, Paperclip } from 'lucide-react';
+import { MoreHorizontal, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-export type TransactionWithRelations = {
+// Pastikan tipe User di sini sudah lengkap
+export type User = {
   id: number;
-  date: string;
-  payee: string;
-  amount: number;
-  attachmentUrl: string | null;
+  fullName: string | null;
+  email: string;
+  role: 'admin' | 'assistant_admin' | 'vip' | 'member'; // Termasuk 'vip' dan 'member'
+  avatarUrl: string | null;
   createdAt: string;
-  categoryId: number;
-  itemId: number;
-  balanceSheetId: number | null;
-  category: { name: string } | null;
-  item: { name: string } | null;
-  balanceSheet: { name: string } | null;
 };
 
-export const columns: ColumnDef<TransactionWithRelations>[] = [
+export const columns: ColumnDef<User>[] = [
+  // ... sisa kode tidak perlu diubah, sudah benar
   {
-    id: 'select',
-    header: ({ table }) => (
-      <Checkbox
-        checked={
-          table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && 'indeterminate')
-        }
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
-      />
-    ),
-    enableSorting: false,
-    enableHiding: false,
+    accessorKey: 'fullName',
+    header: 'Full Name',
   },
   {
-    accessorKey: 'date',
-    header: 'Date',
-    cell: ({ row }) => (
-      <span>{new Date(row.getValue('date')).toLocaleDateString('en-GB')}</span>
-    ),
-    // === TAMBAHKAN LOGIKA FILTER INI ===
-    filterFn: (row, columnId, value) => {
-      const date = new Date(row.getValue(columnId));
-      const [start, end] = value as [Date, Date];
-      // Atur jam agar perbandingan mencakup keseluruhan hari
-      const startDate = new Date(start);
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(end);
-      endDate.setHours(23, 59, 59, 999);
-      return date >= startDate && date <= endDate;
-    },
+    accessorKey: 'email',
+    header: 'Email',
   },
   {
-    accessorKey: 'category.name',
-    header: 'RKAP Name',
-  },
-  {
-    accessorKey: 'item.name',
-    header: 'Item',
-  },
-  {
-    accessorKey: 'payee',
-    header: 'Payee',
-  },
-  {
-    accessorKey: 'amount',
-    header: () => <div className="text-right">Amount</div>,
+    accessorKey: 'role',
+    header: 'Role',
     cell: ({ row }) => {
-      const amount = parseFloat(row.getValue('amount'));
-      const formatted = new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-      }).format(amount);
+      const role = row.getValue('role') as User['role'];
+      const variant: 'default' | 'secondary' | 'outline' =
+        role === 'admin'
+          ? 'default'
+          : role === 'assistant_admin'
+          ? 'secondary'
+          : 'outline';
+
       return (
-        <div
-          className={`text-right font-medium ${
-            amount < 0 ? 'text-red-600' : 'text-green-600'
-          }`}
-        >
-          {formatted}
-        </div>
+        <Badge variant={variant} className="capitalize">
+          {role.replace('_', ' ')}
+        </Badge>
       );
     },
   },
   {
-    accessorKey: 'balanceSheet.name',
-    header: 'Balance Sheet',
-  },
-  {
-    accessorKey: 'attachmentUrl',
-    header: 'Attachment',
-    cell: ({ row, table }) => {
-      const url = row.getValue('attachmentUrl') as string | null;
-      const transaction = row.original;
-      const { onUploadAttachment } = (table.options.meta as any) || {};
-
-      if (url) {
-        return (
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center text-blue-600 hover:underline"
-          >
-            <Paperclip className="h-4 w-4 mr-1" />
-            Sudah PJ
-          </a>
-        );
-      }
-
-      return (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-auto px-2 py-1 text-red-600 hover:text-red-700"
-          onClick={() => onUploadAttachment?.(transaction)}
-        >
-          <Paperclip className="h-4 w-4 mr-1 text-red-500" />
-          Belum PJ
-        </Button>
-      );
-    },
+    accessorKey: 'createdAt',
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+      >
+        Joined At
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) =>
+      new Date(row.getValue('createdAt')).toLocaleDateString('en-GB'),
   },
   {
     id: 'actions',
+    header: () => <div className="text-right">Actions</div>,
     cell: ({ row, table }) => {
-      const transaction = row.original;
-      const { onEdit } = (table.options.meta as any) || {};
+      const user = row.original;
+      const { onChangeRole, currentUser } = (table.options.meta as any) || {};
+      const isCurrentUser = currentUser?.id === user.id;
+
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() =>
-                navigator.clipboard.writeText(String(transaction.id))
-              }
-            >
-              Copy transaction ID
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onEdit?.(transaction)}>
-              Edit transaction
-            </DropdownMenuItem>
-            {transaction.attachmentUrl && (
-              <DropdownMenuItem asChild>
-                <a
-                  href={transaction.attachmentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Download attachment
-                </a>
+        <div className="text-right">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => onChangeRole?.(user)}
+                disabled={currentUser?.role !== 'admin' || isCurrentUser}
+              >
+                Change Role
               </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600"
+                disabled={isCurrentUser}
+              >
+                Delete User
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       );
     },
   },

@@ -1,11 +1,28 @@
 // src/app/api/report/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { transactions, items, categories } from '@/lib/db/schema';
+import { transactions, items, categories, users } from '@/lib/db/schema';
 import { sql, and, gte, lte, eq, lt } from 'drizzle-orm';
 import * as xlsx from 'xlsx-js-style';
 import { format, getMonth, getYear } from 'date-fns';
 import { id as indonesiaLocale } from 'date-fns/locale';
+import { decrypt } from '@/lib/auth';
+
+// Helper untuk mendapatkan sesi dan peran pengguna
+async function getUserSession(request: NextRequest) {
+  const token = request.cookies.get('session_token')?.value;
+  if (!token) return null;
+
+  const session = await decrypt(token);
+  if (!session?.userId) return null;
+
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, session.userId),
+    columns: { role: true },
+  });
+
+  return user;
+}
 
 // Fungsi helper untuk mendapatkan bulan dalam rentang
 const getMonthsInRange = (startDate: Date, endDate: Date): Date[] => {
@@ -20,7 +37,16 @@ const getMonthsInRange = (startDate: Date, endDate: Date): Date[] => {
   return months;
 };
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // --- 1. Tambahkan Pemeriksaan Otorisasi ---
+  const user = await getUserSession(request);
+  if (user?.role !== 'admin' && user?.role !== 'assistant_admin') {
+    return NextResponse.json(
+      { message: 'Forbidden: You do not have permission to export reports.' },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { startDate, endDate } = body;
@@ -34,7 +60,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Mengambil data transaksi (logika tidak berubah)
     const allTransactions = await db
       .select({
         item: items.name,
@@ -53,7 +78,6 @@ export async function POST(request: Request) {
         )
       );
 
-    // Mengolah data (logika tidak berubah)
     const monthsInRange = getMonthsInRange(
       new Date(startDate),
       new Date(endDate)
@@ -83,12 +107,9 @@ export async function POST(request: Request) {
       }
     });
 
-    // === PEMBUATAN XLSX DENGAN STYLE PRESISI TINGGI ===
-
     const wb = xlsx.utils.book_new();
     const wsData: any[][] = [];
 
-    // Definisikan Styles
     const fontArial = { name: 'Arial', sz: 11 };
     const borderAll = {
       top: { style: 'thin' },
@@ -121,7 +142,6 @@ export async function POST(request: Request) {
     const stylePercent = { ...styleDataText, numFmt: '0.00%' };
     const styleFooter = { font: { name: 'Arial', sz: 10 } };
 
-    // Baris 1-3: Judul
     wsData.push(['DEWAN KOMISARIS PT PLN (PERSERO)']);
     wsData.push(['LAPORAN PENGELUARAN']);
     wsData.push([
@@ -133,7 +153,6 @@ export async function POST(request: Request) {
     ]);
     wsData.push([]);
 
-    // Baris 4-6: Header Tabel (Dinamis)
     const headerRow1: (string | null)[] = ['URAIAN'];
     const headerRow2: (string | null)[] = [null];
     const headerRow3: (string | null)[] = ['1'];
@@ -182,7 +201,6 @@ export async function POST(request: Request) {
 
     wsData.push(headerRow1, headerRow2, headerRow3);
 
-    // Baris Data
     Object.values(reportData).forEach((row) => {
       const dataRow: (string | number | null)[] = [row['URAIAN']];
       let total = 0;
@@ -207,12 +225,11 @@ export async function POST(request: Request) {
 
     const ws = xlsx.utils.aoa_to_sheet(wsData, { cellStyles: true });
 
-    // Merge Cells & Apply Styles
     ws['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: totalColCount - 1 } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: totalColCount - 1 } },
       { s: { r: 2, c: 0 }, e: { r: 2, c: totalColCount - 1 } },
-      { s: { r: 4, c: 0 }, e: { r: 6, c: 0 } }, // URAIAN
+      { s: { r: 4, c: 0 }, e: { r: 6, c: 0 } },
     ];
     let currentCol = 1;
     Object.keys(quarters).forEach((q) => {
@@ -226,21 +243,19 @@ export async function POST(request: Request) {
       }
     });
     ws['!merges'].push(
-      { s: { r: 4, c: currentCol }, e: { r: 6, c: currentCol } }, // TOTAL
-      { s: { r: 4, c: currentCol + 1 }, e: { r: 6, c: currentCol + 1 } }, // ANGGARAN
-      { s: { r: 4, c: currentCol + 2 }, e: { r: 6, c: currentCol + 2 } } // % REALISASI
+      { s: { r: 4, c: currentCol }, e: { r: 6, c: currentCol } },
+      { s: { r: 4, c: currentCol + 1 }, e: { r: 6, c: currentCol + 1 } },
+      { s: { r: 4, c: currentCol + 2 }, e: { r: 6, c: currentCol + 2 } }
     );
 
     ws['A1'].s = styleTitle;
     ws['A2'].s = styleTitle;
     ws['A3'].s = styleSubtitle;
 
-    // Terapkan border dan style ke semua sel header secara eksplisit
     for (let c = 0; c < totalColCount; c++) {
       for (let r = 4; r <= 6; r++) {
         const cellRef = xlsx.utils.encode_cell({ r, c });
-        if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' }; // Buat sel kosong jika tidak ada
-        // Terapkan style header, khusus untuk URAIAN perataan berbeda
+        if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
         ws[cellRef].s =
           c === 0 && r > 4
             ? {
@@ -250,7 +265,6 @@ export async function POST(request: Request) {
             : styleHeader;
       }
     }
-    // Perataan tengah vertikal dan horizontal untuk sel 'URAIAN' yang di-merge
     ws['A5'].s = styleHeader;
 
     for (let R = 7; R < wsData.length; R++) {
@@ -258,13 +272,11 @@ export async function POST(request: Request) {
       for (let C = 1; C < totalColCount; C++) {
         const cellRef = xlsx.utils.encode_cell({ r: R, c: C });
         if (!ws[cellRef]) ws[cellRef] = { v: 0 };
-
         if (C === totalColCount - 1) ws[cellRef].s = stylePercent;
         else ws[cellRef].s = styleCurrency;
       }
     }
 
-    // Footer
     const footerRowIndex = wsData.length + 2;
     const footerText = `1   Dewan Komisaris PT (PLN) Persero Laporan Pengeluaran ${format(
       new Date(startDate),
@@ -278,7 +290,6 @@ export async function POST(request: Request) {
     });
     if (ws[`A${footerRowIndex}`]) ws[`A${footerRowIndex}`].s = styleFooter;
 
-    // Page Setup
     ws['!pageSetup'] = {
       orientation: 'portrait',
       paper: 9,
@@ -287,7 +298,6 @@ export async function POST(request: Request) {
       fitToHeight: 1,
     };
 
-    // Atur Lebar Kolom
     ws['!cols'] = [{ wch: 35 }, ...Array(totalColCount - 1).fill({ wch: 12 })];
 
     xlsx.utils.book_append_sheet(wb, ws, 'LAPORAN PENGELUARAN');

@@ -1,115 +1,201 @@
-// src/app/(dashboard)/transactions/page.tsx
+// src/app/(dashboard)/transactions/columns.tsx
 'use client';
-import * as React from 'react';
-import Header from '@/components/Header';
-import { columns, TransactionWithRelations } from './columns';
-import { DataTable } from '@/components/ui/data-table';
-import { AddTransactionDialog } from './add-transaction-dialog';
-import { EditTransactionDialog } from './edit-transaction-dialog';
-import { UploadAttachmentDialog } from './upload-attachment-dialog';
-import { ImportCsvDialog } from './import-csv-dialog';
 
-export default function TransactionsPage() {
-  const [data, setData] = React.useState<TransactionWithRelations[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
-  const [selectedTransaction, setSelectedTransaction] =
-    React.useState<TransactionWithRelations | null>(null);
-  const [isUploadAttachmentDialogOpen, setIsUploadAttachmentDialogOpen] =
-    React.useState(false);
-  const [transactionToUploadAttachment, setTransactionToUploadAttachment] =
-    React.useState<TransactionWithRelations | null>(null);
+import { ColumnDef } from '@tanstack/react-table';
+import { MoreHorizontal, Paperclip } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { User } from '../teams/columns'; // Impor tipe User yang sudah benar
 
-  const fetchTransactions = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/transactions');
-      const transactions = await response.json();
-      setData(transactions);
-    } catch (error) {
-      console.error('Failed to fetch transactions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+// Tipe ini sekarang diekspor dengan benar
+export type TransactionWithRelations = {
+  id: number;
+  date: string;
+  payee: string;
+  amount: number;
+  attachmentUrl: string | null;
+  createdAt: string;
+  categoryId: number;
+  itemId: number;
+  balanceSheetId: number | null;
+  category: { name: string } | null;
+  item: { name: string } | null;
+  balanceSheet: { name: string } | null;
+};
 
-  React.useEffect(() => {
-    fetchTransactions();
-  }, []);
+// Nama fungsi diubah agar jelas dan diekspor
+export const getTransactionColumns = (
+  currentUser: User | null
+): ColumnDef<TransactionWithRelations>[] => {
+  const isVip = currentUser?.role === 'vip';
 
-  const handleDelete = async (ids: number[]) => {
-    try {
-      const response = await fetch('/api/transactions', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids }),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to delete transactions');
-      }
-      await fetchTransactions();
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleEdit = (transaction: TransactionWithRelations) => {
-    setSelectedTransaction(transaction);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleUploadAttachment = (transaction: TransactionWithRelations) => {
-    setTransactionToUploadAttachment(transaction);
-    setIsUploadAttachmentDialogOpen(true);
-  };
-
-  return (
-    <>
-      <Header />
-      <div className="p-8">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">Transactions</h2>
-            <p className="text-muted-foreground">
-              Manage and track all your transactions.
-            </p>
+  const columns: ColumnDef<TransactionWithRelations>[] = [
+    {
+      id: 'select',
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && 'indeterminate')
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      accessorKey: 'date',
+      header: 'Date',
+      cell: ({ row }) => (
+        <span>
+          {new Date(row.getValue('date')).toLocaleDateString('en-GB')}
+        </span>
+      ),
+      filterFn: (row, columnId, value) => {
+        const date = new Date(row.getValue(columnId));
+        const [start, end] = value as [Date, Date];
+        const startDate = new Date(start);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(end);
+        endDate.setHours(23, 59, 59, 999);
+        return date >= startDate && date <= endDate;
+      },
+    },
+    { accessorKey: 'category.name', header: 'RKAP Name' },
+    { accessorKey: 'item.name', header: 'Item' },
+    { accessorKey: 'payee', header: 'Payee' },
+    {
+      accessorKey: 'amount',
+      header: () => <div className="text-right">Amount</div>,
+      cell: ({ row }) => {
+        const amount = parseFloat(row.getValue('amount'));
+        const formatted = new Intl.NumberFormat('id-ID', {
+          style: 'currency',
+          currency: 'IDR',
+          minimumFractionDigits: 0,
+        }).format(amount);
+        return (
+          <div
+            className={`text-right font-medium ${
+              amount < 0 ? 'text-red-600' : 'text-green-600'
+            }`}
+          >
+            {formatted}
           </div>
-          {/* Hapus ImportCsvDialog dari sini, dan sisakan AddTransactionDialog */}
-          <AddTransactionDialog onTransactionAdded={fetchTransactions} />
-        </div>
-        {loading ? (
-          <p>Loading...</p>
-        ) : (
-          <DataTable
-            columns={columns}
-            data={data}
-            filterColumnPlaceholder="payee..."
-            dateFilterColumnId="date"
-            onDelete={handleDelete}
-            meta={{
-              onEdit: handleEdit,
-              onUploadAttachment: handleUploadAttachment,
-            }}
-            exportButtonLabel="Export Triwulan"
-            // Pindahkan ImportCsvDialog ke dalam prop toolbarActions
-            toolbarActions={
-              <ImportCsvDialog onImportSuccess={fetchTransactions} />
-            }
-          />
-        )}
-      </div>
-      <EditTransactionDialog
-        transaction={selectedTransaction}
-        isOpen={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        onTransactionUpdated={fetchTransactions}
-      />
-      <UploadAttachmentDialog
-        transaction={transactionToUploadAttachment}
-        isOpen={isUploadAttachmentDialogOpen}
-        onOpenChange={setIsUploadAttachmentDialogOpen}
-        onAttachmentUploaded={fetchTransactions}
-      />
-    </>
-  );
-}
+        );
+      },
+    },
+    { accessorKey: 'balanceSheet.name', header: 'Balance Sheet' },
+    {
+      accessorKey: 'attachmentUrl',
+      header: 'Attachment',
+      cell: ({ row, table }) => {
+        const url = row.getValue('attachmentUrl') as string | null;
+        const transaction = row.original;
+        const { onUploadAttachment } = (table.options.meta as any) || {};
+
+        if (url) {
+          return (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center text-blue-600 hover:underline"
+            >
+              <Paperclip className="h-4 w-4 mr-1" />
+              Sudah PJ
+            </a>
+          );
+        }
+
+        if (isVip) {
+          return (
+            <span className="flex items-center text-red-600">
+              <Paperclip className="h-4 w-4 mr-1 text-red-500" />
+              Belum PJ
+            </span>
+          );
+        }
+
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-auto px-2 py-1 text-red-600 hover:text-red-700"
+            onClick={() => onUploadAttachment?.(transaction)}
+          >
+            <Paperclip className="h-4 w-4 mr-1 text-red-500" />
+            Belum PJ
+          </Button>
+        );
+      },
+    },
+    {
+      id: 'actions',
+      cell: ({ row, table }) => {
+        if (isVip) return null; // Sembunyikan seluruh sel aksi untuk VIP
+
+        const transaction = row.original;
+        const { onEdit } = (table.options.meta as any) || {};
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() =>
+                  navigator.clipboard.writeText(String(transaction.id))
+                }
+              >
+                Copy transaction ID
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onEdit?.(transaction)}>
+                Edit transaction
+              </DropdownMenuItem>
+              {transaction.attachmentUrl && (
+                <DropdownMenuItem asChild>
+                  <a
+                    href={transaction.attachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Download attachment
+                  </a>
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
+    },
+  ];
+
+  // Saring kolom berdasarkan peran pengguna
+  if (isVip) {
+    return columns.filter((col) => col.id !== 'select' && col.id !== 'actions');
+  }
+  return columns;
+};

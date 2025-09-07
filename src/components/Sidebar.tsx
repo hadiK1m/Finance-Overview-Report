@@ -1,7 +1,7 @@
 // src/components/Sidebar.tsx
 'use client';
 
-import React, { useState } from 'react'; // Impor useState
+import React, { useEffect, useState } from 'react'; // Impor useState
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -22,6 +22,7 @@ import {
   Loader2, // 1. Impor ikon Loader2
 } from 'lucide-react';
 import Image from 'next/image';
+import { User } from '@/app/(dashboard)/teams/columns';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -97,6 +98,25 @@ const CollapsibleSection = ({
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false); // 2. Tambahkan state loading
+  const [currentUser, setCurrentUser] = useState<User | null>(null); // State untuk data pengguna
+
+  // Ambil data pengguna saat komponen dimuat
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          cache: 'no-store',
+        });
+        const data = await response.json();
+        if (data.user) {
+          setCurrentUser(data.user);
+        }
+      } catch (error) {
+        console.error('Failed to fetch user for sidebar', error);
+      }
+    };
+    fetchUser();
+  }, []);
 
   // 3. Perbarui fungsi handleLogout
   const handleLogout = async () => {
@@ -147,10 +167,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggle }) => {
 
           {isOpen && (
             <div>
-              <p className="font-semibold text-sm truncate">Courtney Henry</p>
-              <p className="text-xs text-gray-500 truncate">
-                The Walt Disney Company
+              <p className="font-semibold text-sm truncate">
+                {currentUser?.fullName || 'Loading...'}
               </p>
+              <p className="text-xs text-gray-500 truncate">DEKOM DASHBOARD</p>
             </div>
           )}
         </div>
