@@ -1,8 +1,8 @@
 // src/app/api/report/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { transactions, items, categories, users } from '@/lib/db/schema';
-import { sql, and, gte, lte, eq, lt, ne } from 'drizzle-orm';
+import { transactions, categories, users } from '@/lib/db/schema';
+import { sql, and, gte, lte, eq, lt, ne, inArray, desc } from 'drizzle-orm';
 import * as xlsx from 'xlsx-js-style';
 import { format, getMonth, getYear } from 'date-fns';
 import { id as indonesiaLocale } from 'date-fns/locale';
@@ -38,7 +38,6 @@ const getMonthsInRange = (startDate: Date, endDate: Date): Date[] => {
 };
 
 export async function POST(request: NextRequest) {
-  // --- Pemeriksaan Otorisasi ---
   const user = await getUserSession(request);
   if (user?.role !== 'admin' && user?.role !== 'assistant_admin') {
     return NextResponse.json(
@@ -60,15 +59,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const allTransactions = await db
+    // === PERUBAHAN LOGIKA PENGAMBILAN DATA DIMULAI DI SINI ===
+
+    // 1. Ambil semua transaksi yang relevan dalam rentang tanggal
+    const relevantTransactions = await db
       .select({
-        categoryName: categories.name,
-        budget: categories.budget,
+        categoryId: transactions.categoryId,
         amount: transactions.amount,
         date: transactions.date,
       })
       .from(transactions)
-      .leftJoin(items, eq(transactions.itemId, items.id))
       .leftJoin(categories, eq(transactions.categoryId, categories.id))
       .where(
         and(
@@ -79,6 +79,33 @@ export async function POST(request: NextRequest) {
         )
       );
 
+    if (relevantTransactions.length === 0) {
+      return NextResponse.json(
+        { message: 'No data to export for the selected period.' },
+        { status: 404 }
+      );
+    }
+
+    // 2. Kumpulkan semua ID kategori unik dari transaksi yang ditemukan
+    const categoryIds = [
+      ...new Set(relevantTransactions.map((t) => t.categoryId)),
+    ];
+
+    // 3. Ambil detail kategori (termasuk budget) hanya untuk ID yang relevan
+    const relevantCategories = await db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        budget: categories.budget,
+      })
+      .from(categories)
+      .where(inArray(categories.id, categoryIds))
+      .orderBy(desc(categories.id));
+
+    const categoryMap = new Map(
+      relevantCategories.map((c) => [c.id, { name: c.name, budget: c.budget }])
+    );
+
     const monthsInRange = getMonthsInRange(
       new Date(startDate),
       new Date(endDate)
@@ -86,33 +113,42 @@ export async function POST(request: NextRequest) {
     const monthHeaders = monthsInRange.map((d) =>
       format(d, 'MMMM', { locale: indonesiaLocale }).toUpperCase()
     );
+
     const reportData: { [key: string]: any } = {};
 
-    allTransactions.forEach((tx) => {
-      // === PERBAIKAN ERROR DI SINI ===
-      // Pastikan tx.categoryName tidak null sebelum digunakan sebagai kunci objek.
-      if (tx.categoryName) {
-        const categoryKey = tx.categoryName;
+    // 4. Inisialisasi reportData berdasarkan kategori yang relevan (bukan semua transaksi)
+    for (const category of relevantCategories) {
+      const categoryKey = category.name;
+      if (!reportData[categoryKey]) {
+        reportData[categoryKey] = {
+          URAIAN: categoryKey,
+          [anggaranHeader]: category.budget || 0,
+        };
+        monthHeaders.forEach((header) => {
+          reportData[categoryKey][header] = 0;
+        });
+      }
+    }
 
-        if (!reportData[categoryKey]) {
-          reportData[categoryKey] = {
-            URAIAN: categoryKey,
-            [anggaranHeader]: tx.budget || 0,
-          };
-          monthHeaders.forEach((header) => {
-            reportData[categoryKey][header] = 0;
-          });
-        }
-
+    // 5. Agregasi data transaksi ke dalam reportData
+    relevantTransactions.forEach((tx) => {
+      const categoryInfo = categoryMap.get(tx.categoryId);
+      if (categoryInfo) {
+        const categoryKey = categoryInfo.name;
         const monthName = format(new Date(tx.date), 'MMMM', {
           locale: indonesiaLocale,
         }).toUpperCase();
 
-        if (reportData[categoryKey][monthName] !== undefined) {
+        if (
+          reportData[categoryKey] &&
+          reportData[categoryKey][monthName] !== undefined
+        ) {
           reportData[categoryKey][monthName] += Math.abs(tx.amount);
         }
       }
     });
+
+    // === AKHIR DARI PERUBAHAN LOGIKA ===
 
     const wb = xlsx.utils.book_new();
     const wsData: any[][] = [];

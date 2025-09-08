@@ -20,6 +20,7 @@ import {
   LogOut,
   WalletCards,
   Loader2,
+  History,
 } from 'lucide-react';
 import Image from 'next/image';
 import { User } from '@/app/(dashboard)/teams/columns';
