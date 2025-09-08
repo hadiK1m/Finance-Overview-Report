@@ -37,6 +37,18 @@ const formatCurrency = (value: number) =>
     minimumFractionDigits: 0,
   }).format(value);
 
+// tambahkan array warna eksplisit (fallback)
+const COLORS = [
+  '#192E6B', // very dark blue / slate
+  '#1e3a8a', // indigo-800
+  '#2563eb', // blue-600
+  '#3b82f6', // blue-500
+  '#60a5fa', // blue-400
+  '#93c5fd', // blue-300
+  '#bfdbfe', // blue-200
+  '#e0f2fe', // blue-100
+];
+
 // --- KOMPONEN UTAMA ---
 export function RkapItemBreakdown({ data, isLoading }: RkapItemBreakdownProps) {
   if (isLoading) {
@@ -74,7 +86,7 @@ export function RkapItemBreakdown({ data, isLoading }: RkapItemBreakdownProps) {
         const chartConfig = items.reduce((acc, item, index) => {
           acc[item.name] = {
             label: item.name,
-            color: `hsl(var(--chart-${(index % 5) + 1}))`,
+            color: COLORS[index % COLORS.length],
           };
           return acc;
         }, {} as ChartConfig);
@@ -108,7 +120,7 @@ export function RkapItemBreakdown({ data, isLoading }: RkapItemBreakdownProps) {
                       {items.map((entry, idx) => (
                         <Cell
                           key={`cell-${idx}`}
-                          fill={`hsl(var(--chart-${(idx % 5) + 1}))`}
+                          fill={COLORS[idx % COLORS.length]}
                         />
                       ))}
                     </Pie>
