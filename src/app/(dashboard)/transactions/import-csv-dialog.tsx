@@ -16,10 +16,29 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Upload } from 'lucide-react';
 import Papa from 'papaparse';
+import { toast } from 'sonner';
 
 interface ImportCsvDialogProps {
   onImportSuccess: () => void;
 }
+
+// Komponen untuk menampilkan detail error di dalam toast
+const SkippedRowsDetail = ({
+  rows,
+}: {
+  rows: { row: any; reason: string }[];
+}) => (
+  <div className="mt-2 text-xs">
+    <p className="font-semibold">Details:</p>
+    <ul className="list-disc pl-4 max-h-40 overflow-y-auto">
+      {rows.map(({ row, reason }) => (
+        <li key={`line-${row.lineNumber}`}>
+          <b>Line {row.lineNumber}:</b> {reason} (Item: {row.itemName || 'N/A'})
+        </li>
+      ))}
+    </ul>
+  </div>
+);
 
 export function ImportCsvDialog({ onImportSuccess }: ImportCsvDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -54,22 +73,58 @@ export function ImportCsvDialog({ onImportSuccess }: ImportCsvDialogProps) {
             body: JSON.stringify({ data: results.data }),
           });
 
+          const resultData = await response.json();
+
           if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to import data.');
+            throw new Error(resultData.message || 'Failed to import data.');
+          }
+
+          // === PERUBAHAN LOGIKA NOTIFIKASI ===
+          if (resultData.successCount > 0) {
+            toast.success(
+              `${resultData.successCount} transactions imported successfully.`
+            );
+          }
+
+          if (resultData.skippedRows && resultData.skippedRows.length > 0) {
+            toast.warning(
+              `${resultData.skippedRows.length} rows were skipped.`,
+              {
+                description: (
+                  <SkippedRowsDetail rows={resultData.skippedRows} />
+                ),
+                duration: 10000, // Tampilkan lebih lama agar bisa dibaca
+              }
+            );
+          }
+
+          if (
+            resultData.successCount === 0 &&
+            resultData.skippedRows.length > 0
+          ) {
+            toast.error('Import failed. No valid data was found.');
+          }
+
+          if (
+            resultData.successCount === 0 &&
+            (!resultData.skippedRows || resultData.skippedRows.length === 0)
+          ) {
+            toast.info('The CSV file appears to be empty or contains no data.');
           }
 
           setIsOpen(false);
           setFile(null);
-          onImportSuccess(); // Refresh data di halaman utama
+          onImportSuccess();
         } catch (err: any) {
           setError(err.message);
+          toast.error(err.message);
         } finally {
           setIsProcessing(false);
         }
       },
       error: (err) => {
         setError('Failed to parse CSV file: ' + err.message);
+        toast.error('Failed to parse CSV file.');
         setIsProcessing(false);
       },
     });
@@ -87,8 +142,9 @@ export function ImportCsvDialog({ onImportSuccess }: ImportCsvDialogProps) {
         <DialogHeader>
           <DialogTitle>Import Transactions from CSV</DialogTitle>
           <DialogDescription>
-            Select a CSV file to import. The file must have headers: `date`,
-            `rkapName`, `itemName`, `payee`, `amount`, and `balanceSheetName`.
+            Select a CSV file. Headers must include: `date`, `itemName`,
+            `payee`, `amount`, and `balanceSheetName`. The RKAP Name will be
+            auto-detected from the item.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

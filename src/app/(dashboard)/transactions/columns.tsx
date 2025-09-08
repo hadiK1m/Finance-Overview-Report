@@ -2,7 +2,7 @@
 'use client';
 
 import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, Paperclip } from 'lucide-react';
+import { MoreHorizontal, Paperclip, ArrowUpDown } from 'lucide-react'; // <-- 1. Impor ArrowUpDown
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -61,12 +61,33 @@ export const getTransactionColumns = (
     },
     {
       accessorKey: 'date',
-      header: 'Date',
+      // === PERUBAHAN DIMULAI DI SINI ===
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          >
+            Date
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      // === AKHIR DARI PERUBAHAN ===
       cell: ({ row }) => (
-        <span>
+        <div className="pl-4">
           {new Date(row.getValue('date')).toLocaleDateString('en-GB')}
-        </span>
+        </div>
       ),
+      filterFn: (row, columnId, value) => {
+        const date = new Date(row.getValue(columnId));
+        const [start, end] = value as [Date, Date];
+        const startDate = new Date(start);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(end);
+        endDate.setHours(23, 59, 59, 999);
+        return date >= startDate && date <= endDate;
+      },
     },
     { accessorKey: 'category.name', header: 'RKAP Name' },
     { accessorKey: 'item.name', header: 'Item' },
@@ -181,7 +202,6 @@ export const getTransactionColumns = (
     },
   ];
 
-  // Jika pengguna tidak punya hak modifikasi (contoh: VIP), saring kolom 'select' dan 'actions'
   if (!canModify) {
     return columns.filter((col) => col.id !== 'select' && col.id !== 'actions');
   }

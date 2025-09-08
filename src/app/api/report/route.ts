@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { transactions, items, categories, users } from '@/lib/db/schema';
-import { sql, and, gte, lte, eq, lt } from 'drizzle-orm';
+import { sql, and, gte, lte, eq, lt, ne } from 'drizzle-orm';
 import * as xlsx from 'xlsx-js-style';
 import { format, getMonth, getYear } from 'date-fns';
 import { id as indonesiaLocale } from 'date-fns/locale';
@@ -38,7 +38,7 @@ const getMonthsInRange = (startDate: Date, endDate: Date): Date[] => {
 };
 
 export async function POST(request: NextRequest) {
-  // --- 1. Tambahkan Pemeriksaan Otorisasi ---
+  // --- Pemeriksaan Otorisasi ---
   const user = await getUserSession(request);
   if (user?.role !== 'admin' && user?.role !== 'assistant_admin') {
     return NextResponse.json(
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     const allTransactions = await db
       .select({
-        item: items.name,
+        categoryName: categories.name,
         budget: categories.budget,
         amount: transactions.amount,
         date: transactions.date,
@@ -74,7 +74,8 @@ export async function POST(request: NextRequest) {
         and(
           gte(transactions.date, new Date(startDate)),
           lte(transactions.date, new Date(endDate)),
-          lt(transactions.amount, 0)
+          lt(transactions.amount, 0),
+          ne(categories.name, 'Cash Advanced')
         )
       );
 
@@ -86,24 +87,30 @@ export async function POST(request: NextRequest) {
       format(d, 'MMMM', { locale: indonesiaLocale }).toUpperCase()
     );
     const reportData: { [key: string]: any } = {};
+
     allTransactions.forEach((tx) => {
-      if (!tx.item) return;
-      if (!reportData[tx.item]) {
-        reportData[tx.item] = {
-          URAIAN: tx.item,
-          [anggaranHeader]: tx.budget || 0,
-        };
-        monthHeaders.forEach((header) => {
-          if (tx.item) {
-            reportData[tx.item][header] = 0;
-          }
-        });
-      }
-      const monthName = format(new Date(tx.date), 'MMMM', {
-        locale: indonesiaLocale,
-      }).toUpperCase();
-      if (reportData[tx.item][monthName] !== undefined) {
-        reportData[tx.item][monthName] += Math.abs(tx.amount);
+      // === PERBAIKAN ERROR DI SINI ===
+      // Pastikan tx.categoryName tidak null sebelum digunakan sebagai kunci objek.
+      if (tx.categoryName) {
+        const categoryKey = tx.categoryName;
+
+        if (!reportData[categoryKey]) {
+          reportData[categoryKey] = {
+            URAIAN: categoryKey,
+            [anggaranHeader]: tx.budget || 0,
+          };
+          monthHeaders.forEach((header) => {
+            reportData[categoryKey][header] = 0;
+          });
+        }
+
+        const monthName = format(new Date(tx.date), 'MMMM', {
+          locale: indonesiaLocale,
+        }).toUpperCase();
+
+        if (reportData[categoryKey][monthName] !== undefined) {
+          reportData[categoryKey][monthName] += Math.abs(tx.amount);
+        }
       }
     });
 
@@ -181,8 +188,8 @@ export async function POST(request: NextRequest) {
       if (quarterMonths.length > 0) {
         headerRow1.push(`REALISASI TRIWULAN ${q}`);
         headerRow1.push(...Array(quarterMonths.length).fill(null));
-        quarterMonths.forEach(() => {
-          headerRow2.push(monthHeaders.shift()!);
+        quarterMonths.forEach((month) => {
+          headerRow2.push(month);
           headerRow3.push(String(++columnCounter));
         });
         headerRow2.push('JUMLAH');
@@ -190,6 +197,7 @@ export async function POST(request: NextRequest) {
         totalColCount += quarterMonths.length + 1;
       }
     });
+
     headerRow1.push('TOTAL', anggaranHeader, '% REALISASI');
     headerRow2.push(null, null, null);
     headerRow3.push(
@@ -231,6 +239,7 @@ export async function POST(request: NextRequest) {
       { s: { r: 2, c: 0 }, e: { r: 2, c: totalColCount - 1 } },
       { s: { r: 4, c: 0 }, e: { r: 6, c: 0 } },
     ];
+
     let currentCol = 1;
     Object.keys(quarters).forEach((q) => {
       const quarterMonths = quarters[Number(q)];

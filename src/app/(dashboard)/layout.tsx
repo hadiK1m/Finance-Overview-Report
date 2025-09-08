@@ -2,9 +2,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation'; // Impor usePathname
+import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
-import { Loader2 } from 'lucide-react'; // Impor ikon loader
+import { Loader2 } from 'lucide-react';
+import { Toaster } from '@/components/ui/sonner'; // <-- 1. Impor Toaster
 
 // Komponen untuk loading overlay
 const LoadingOverlay = () => (
@@ -19,10 +20,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
-  const [isPageLoading, setIsPageLoading] = useState(false); // State untuk loading
+  const [isPageLoading, setIsPageLoading] = useState(false);
   const pathname = usePathname();
 
-  // Efek ini akan berjalan setiap kali URL berubah (navigasi selesai)
   useEffect(() => {
     setIsPageLoading(false);
   }, [pathname]);
@@ -36,12 +36,13 @@ export default function DashboardLayout({
       <Sidebar
         isOpen={isSidebarOpen}
         toggle={toggleSidebar}
-        setIsPageLoading={setIsPageLoading} // Kirim fungsi set loading ke Sidebar
+        setIsPageLoading={setIsPageLoading}
       />
-      {/* Bungkus main content dengan div relatif */}
       <main className="relative flex-1 flex flex-col">
         {isPageLoading && <LoadingOverlay />}
         {children}
+        {/* 2. Tambahkan komponen Toaster di sini */}
+        <Toaster richColors position="bottom-right" />
       </main>
     </div>
   );
