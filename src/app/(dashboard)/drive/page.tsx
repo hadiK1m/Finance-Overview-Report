@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import Header from '@/components/Header';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -340,7 +340,6 @@ export default function DrivePage() {
 
   return (
     <>
-      <Header />
       <div className="p-8">
         <div className="mb-6 flex flex-col gap-4">
           <div className="flex items-center justify-between">

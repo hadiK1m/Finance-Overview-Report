@@ -13,7 +13,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Category } from '@/lib/category-data';
+import { categories } from '@/lib/db/schema'; // <-- 1. Impor skema Drizzle
+import { InferSelectModel } from 'drizzle-orm';
+
+// 2. Definisikan tipe Category berdasarkan skema, tambahkan itemCount
+export type Category = InferSelectModel<typeof categories> & {
+  itemCount: number;
+};
 
 export const columns: ColumnDef<Category>[] = [
   {

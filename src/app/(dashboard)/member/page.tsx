@@ -1,5 +1,5 @@
 // src/app/(dashboard)/member/page.tsx
-import Header from '@/components/Header';
+
 import {
   Card,
   CardContent,
@@ -12,7 +12,6 @@ import { ShieldAlert } from 'lucide-react';
 export default function MemberPage() {
   return (
     <>
-      <Header />
       <div className="flex flex-1 items-center justify-center p-8 bg-gray-100/50">
         <Card className="w-full max-w-lg text-center">
           <CardHeader>

@@ -1,7 +1,7 @@
 // src/app/(dashboard)/balancesheet/page.tsx
 'use client';
 import * as React from 'react';
-import Header from '@/components/Header';
+
 import { columns, BalanceSheet } from './columns';
 import { DataTable } from '@/components/ui/data-table';
 import { AddBalanceSheetDialog } from './add-balancesheet-dialog';
@@ -55,7 +55,6 @@ export default function BalanceSheetPage() {
 
   return (
     <>
-      <Header />
       <div className="p-8">
         <div className="flex justify-between items-center mb-6">
           <div>

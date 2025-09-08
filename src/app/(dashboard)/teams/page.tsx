@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import Header from '@/components/Header';
+
 import { columns, User } from './columns';
 import { DataTable } from '@/components/ui/data-table';
 import { ChangeRoleDialog } from './change-role-dialog';
@@ -52,7 +52,6 @@ export default function TeamsPage() {
 
   return (
     <>
-      <Header />
       <div className="p-8">
         <div className="flex justify-between items-center mb-6">
           <div>

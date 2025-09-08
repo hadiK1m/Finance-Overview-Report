@@ -1,7 +1,6 @@
 // src/app/(dashboard)/transactions/page.tsx
 'use client';
 import * as React from 'react';
-import Header from '@/components/Header';
 import { getTransactionColumns, TransactionWithRelations } from './columns'; // <-- Perbarui impor ini
 import { DataTable } from '@/components/ui/data-table';
 import { AddTransactionDialog } from './add-transaction-dialog';
@@ -87,7 +86,6 @@ export default function TransactionsPage() {
 
   return (
     <>
-      <Header />
       <div className="p-8">
         <div className="flex justify-between items-center mb-6">
           <div>

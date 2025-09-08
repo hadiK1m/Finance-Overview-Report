@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import Header from '@/components/Header';
+
 import { User } from '@/app/(dashboard)/teams/columns';
 import { ProfileForm } from './profile-form';
 import { PasswordForm } from './password-form';
@@ -40,7 +40,6 @@ export default function SettingsPage() {
 
   return (
     <>
-      <Header />
       <div className="p-8 max-w-4xl mx-auto">
         <div className="mb-6 pb-6">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">

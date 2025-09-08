@@ -2,12 +2,10 @@
 'use client';
 
 import * as React from 'react';
-import Header from '@/components/Header';
-import { columns } from './columns';
+import { columns, Category } from './columns'; // <-- Perubahan di sini
 import { DataTable } from '@/components/ui/data-table';
 import { AddCategoryDialog } from './add-category-dialog';
-import { EditCategoryDialog } from './edit-category-dialog'; // <-- Impor dialog edit
-import { Category } from '@/lib/category-data';
+import { EditCategoryDialog } from './edit-category-dialog';
 
 export default function CategoriesPage() {
   const [data, setData] = React.useState<Category[]>([]);
@@ -61,7 +59,6 @@ export default function CategoriesPage() {
 
   return (
     <>
-      <Header />
       <div className="p-8">
         <div className="flex justify-between items-center mb-6">
           <div>

@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import Header from '@/components/Header';
+
 import { columns, ItemWithCategory } from './columns';
 import { DataTable } from '@/components/ui/data-table';
 import { AddItemDialog } from './add-item-dialog';
@@ -59,7 +59,6 @@ export default function ItemsPage() {
 
   return (
     <>
-      <Header />
       <div className="p-8">
         <div className="flex justify-between items-center mb-6">
           <div>
