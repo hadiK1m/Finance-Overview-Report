@@ -287,26 +287,47 @@ export function EditTransactionDialog({
               <FormField
                 control={form.control}
                 name="item"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Item</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select an item" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {items.map((item) => (
-                          <SelectItem key={item.id} value={String(item.id)}>
-                            {item.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const [itemQuery, setItemQuery] = React.useState('');
+                  const filteredItems = items.filter((it) =>
+                    it.name.toLowerCase().includes(itemQuery.toLowerCase())
+                  );
+
+                  return (
+                    <FormItem>
+                      <FormLabel>Item</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an item" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {/* Search box inside dropdown */}
+                          <div className="px-3 py-2">
+                            <Input
+                              placeholder="Type to search..."
+                              value={itemQuery}
+                              onChange={(e) => setItemQuery(e.target.value)}
+                              className="mb-2"
+                            />
+                          </div>
+                          {(filteredItems.length ? filteredItems : items).map(
+                            (item) => (
+                              <SelectItem key={item.id} value={String(item.id)}>
+                                {item.name}
+                              </SelectItem>
+                            )
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
               <FormField
                 control={form.control}
@@ -364,16 +385,29 @@ export function EditTransactionDialog({
                           onValueChange={(value: TransactionType) => {
                             if (value) setTransactionType(value);
                           }}
+                          className="mr-2"
                         >
                           <ToggleGroupItem
                             value="income"
                             aria-label="Toggle income"
+                            className={cn(
+                              'p-2 rounded-md transition-transform duration-150 inline-flex items-center justify-center',
+                              transactionType === 'income'
+                                ? 'bg-emerald-600 text-white scale-105 shadow-md ring-2 ring-emerald-200/40'
+                                : 'bg-transparent text-foreground hover:bg-emerald-50'
+                            )}
                           >
                             <Plus className="h-4 w-4" />
                           </ToggleGroupItem>
                           <ToggleGroupItem
                             value="expense"
                             aria-label="Toggle expense"
+                            className={cn(
+                              'p-2 rounded-md transition-transform duration-150 inline-flex items-center justify-center',
+                              transactionType === 'expense'
+                                ? 'bg-rose-600 text-white scale-105 shadow-md ring-2 ring-rose-200/40'
+                                : 'bg-transparent text-foreground hover:bg-rose-50'
+                            )}
                           >
                             <Minus className="h-4 w-4" />
                           </ToggleGroupItem>
@@ -392,6 +426,29 @@ export function EditTransactionDialog({
                         </FormControl>
                       </div>
                       <FormMessage />
+                      {/* Small dynamic warning */}
+                      <p
+                        className={cn(
+                          'mt-2 text-sm',
+                          transactionType === 'income'
+                            ? 'text-emerald-500'
+                            : 'text-rose-500'
+                        )}
+                      >
+                        {transactionType === 'income'
+                          ? 'Income — this amount will be recorded as positive.'
+                          : 'Expense — this amount will be recorded as negative.'}
+                      </p>
+                      {typeof field.value === 'number' &&
+                        field.value !== 0 &&
+                        ((transactionType === 'income' && field.value < 0) ||
+                          (transactionType === 'expense' &&
+                            field.value > 0)) && (
+                          <p className="mt-1 text-xs text-yellow-600">
+                            Warning: numeric sign and selected type do not
+                            match. Value will be coerced on save.
+                          </p>
+                        )}
                     </FormItem>
                   )}
                 />

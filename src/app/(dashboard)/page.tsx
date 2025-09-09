@@ -166,6 +166,23 @@ export default function HomePage() {
       )
     : [];
 
+  // Pastikan urutan balance sheets: Bank dulu, lalu Petty Cash, sisanya mengikuti urutan asli
+  const orderedBalanceSheets = data
+    ? (() => {
+        const sheets = data.balanceSheets || [];
+        const bank = sheets.find((s) => s.name === 'Bank') ?? null;
+        const petty = sheets.find((s) => s.name === 'Petty Cash') ?? null;
+        const others = sheets.filter(
+          (s) => s.name !== 'Bank' && s.name !== 'Petty Cash'
+        );
+        const result: typeof sheets = [];
+        if (bank) result.push(bank);
+        if (petty) result.push(petty);
+        result.push(...others);
+        return result;
+      })()
+    : [];
+
   if (pageLoading) {
     return <div className="p-8">Loading dashboard...</div>;
   }
@@ -188,7 +205,7 @@ export default function HomePage() {
         </div>
       </div>
       {/* Bagian Card Saldo */}
-      {data?.balanceSheets.map((sheet) => (
+      {orderedBalanceSheets.map((sheet) => (
         <div key={sheet.id} className="mb-8">
           <CardTitle className="mb-4">{sheet.name}</CardTitle>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-stretch">
