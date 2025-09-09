@@ -29,10 +29,41 @@ export default function TransactionsPage() {
         fetch('/api/transactions'),
         fetch('/api/auth/session'),
       ]);
+
+      // Transactions: pastikan OK dan JSON
+      if (!transactionsRes.ok) {
+        const text = await transactionsRes.text();
+        console.error(
+          `Transactions API error ${transactionsRes.status}:`,
+          text
+        );
+        throw new Error(`Transactions API error ${transactionsRes.status}`);
+      }
+      const txContentType = transactionsRes.headers.get('content-type') || '';
+      if (!txContentType.includes('application/json')) {
+        const text = await transactionsRes.text();
+        console.error('Transactions response is not JSON:', text);
+        throw new Error('Transactions API did not return JSON');
+      }
       const transactions = await transactionsRes.json();
-      const session = await sessionRes.json();
+
+      // Session: bisa saja mengembalikan HTML (redirect login) — tangani aman
+      let session = null;
+      if (sessionRes.ok) {
+        const sessContentType = sessionRes.headers.get('content-type') || '';
+        if (sessContentType.includes('application/json')) {
+          session = await sessionRes.json();
+        } else {
+          const text = await sessionRes.text();
+          console.warn('Session response is not JSON:', text);
+        }
+      } else {
+        const text = await sessionRes.text();
+        console.warn(`Session fetch returned ${sessionRes.status}:`, text);
+      }
+
       setData(transactions);
-      setCurrentUser(session.user);
+      setCurrentUser(session?.user ?? null);
     } catch (error) {
       console.error('Failed to fetch initial data:', error);
     } finally {
@@ -43,7 +74,19 @@ export default function TransactionsPage() {
   const fetchTransactionsOnly = async () => {
     try {
       const response = await fetch('/api/transactions');
-      setData(await response.json());
+      if (!response.ok) {
+        const text = await response.text();
+        console.error(`Transactions API error ${response.status}:`, text);
+        return;
+      }
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Transactions response is not JSON:', text);
+        return;
+      }
+      const json = await response.json();
+      setData(json);
     } catch (error) {
       console.error('Failed to fetch transactions:', error);
     }
