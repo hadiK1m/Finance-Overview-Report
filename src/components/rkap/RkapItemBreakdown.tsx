@@ -98,7 +98,6 @@ export function RkapItemBreakdown({ data, isLoading }: RkapItemBreakdownProps) {
           <Card key={rkapName} className="flex flex-col">
             <CardHeader className="items-center pb-2">
               <CardTitle>{rkapName}</CardTitle>
-              {/* --- PERUBAHAN DI SINI --- */}
               <CardDescription>
                 Budget: {formatCurrency(budget)}
               </CardDescription>
@@ -108,6 +107,7 @@ export function RkapItemBreakdown({ data, isLoading }: RkapItemBreakdownProps) {
                 config={chartConfig}
                 className="mx-auto aspect-square max-h-[300px] pb-0"
               >
+                {/* --- PERUBAHAN DI SINI --- */}
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Tooltip
