@@ -49,7 +49,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { transactionFormSchema } from '@/lib/schemas';
 import { TransactionWithRelations } from './columns';
-import { Category } from '@/lib/category-data';
+import { Category } from '@/app/(dashboard)/categories/columns';
 import { ItemWithCategory } from '../items/columns';
 import { BalanceSheet } from '../balancesheet/columns';
 
@@ -333,7 +333,7 @@ export function EditTransactionDialog({
                           type="single"
                           variant="outline"
                           value={transactionType}
-                          onValue-Change={(value: TransactionType) => {
+                          onValueChange={(value: TransactionType) => {
                             if (value) setTransactionType(value);
                           }}
                         >

@@ -33,7 +33,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Category } from '@/lib/category-data';
+// --- PERUBAHAN DI SINI ---
+import { Category } from '@/app/(dashboard)/categories/columns';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'Item name is required.' }),

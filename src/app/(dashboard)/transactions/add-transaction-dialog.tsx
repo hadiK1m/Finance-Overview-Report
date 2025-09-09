@@ -50,11 +50,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Category } from '@/lib/category-data';
 import { ItemWithCategory } from '../items/columns';
 import { BalanceSheet } from '../balancesheet/columns';
 import { transactionFormSchema } from '@/lib/schemas';
 import { AmountInput } from '@/components/ui/amount-input';
+// --- PERUBAHAN DI SINI ---
+import { Category } from '@/app/(dashboard)/categories/columns';
 
 type TransactionType = 'income' | 'expense';
 

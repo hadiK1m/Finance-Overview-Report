@@ -24,7 +24,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Category } from '@/lib/category-data';
+// --- PERUBAHAN DI SINI ---
+import { Category } from './columns';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'Category name is required.' }),
