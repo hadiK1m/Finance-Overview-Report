@@ -52,6 +52,7 @@ import { TransactionWithRelations } from './columns';
 import { Category } from '@/app/(dashboard)/categories/columns';
 import { ItemWithCategory } from '../items/columns';
 import { BalanceSheet } from '../balancesheet/columns';
+import { toast } from 'sonner'; // Import toast untuk notifikasi
 
 type TransactionType = 'income' | 'expense';
 
@@ -130,16 +131,40 @@ export function EditTransactionDialog({
     }
   }, [selectedItemId, items, form]);
 
+  // --- LOGIKA SEMPURNA UNTUK MENGHAPUS ATTACHMENT ---
   const handleRemoveExistingAttachment = async () => {
-    if (!existingAttachmentUrl) return;
-    try {
+    if (!existingAttachmentUrl || !transaction) return;
+
+    const promise = async () => {
+      // 1. Hapus file fisik dari server
       await fetch(`/api/upload?fileUrl=${existingAttachmentUrl}`, {
         method: 'DELETE',
       });
+
+      // 2. Update database untuk mengatur attachmentUrl menjadi null
+      const dbUpdateResponse = await fetch('/api/transactions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: transaction.id,
+          attachmentUrl: null, // Set ke null
+        }),
+      });
+
+      if (!dbUpdateResponse.ok) {
+        throw new Error('Failed to update the transaction in the database.');
+      }
+
+      // 3. Update state di frontend dan refresh data tabel utama
       setExistingAttachmentUrl(null);
-    } catch (error) {
-      console.error('Failed to delete existing file:', error);
-    }
+      onTransactionUpdated();
+    };
+
+    toast.promise(promise, {
+      loading: 'Deleting attachment...',
+      success: 'Attachment deleted successfully.',
+      error: 'Failed to delete attachment.',
+    });
   };
 
   async function onSubmit(values: z.infer<typeof transactionFormSchema>) {
@@ -150,7 +175,10 @@ export function EditTransactionDialog({
 
     if (values.attachment) {
       if (existingAttachmentUrl) {
-        await handleRemoveExistingAttachment();
+        // Hapus file lama jika ada file baru yang diunggah
+        await fetch(`/api/upload?fileUrl=${existingAttachmentUrl}`, {
+          method: 'DELETE',
+        });
       }
       const file = values.attachment;
       const formData = new FormData();
@@ -168,8 +196,6 @@ export function EditTransactionDialog({
         form.setError('root.serverError', { message: 'File upload failed.' });
         return;
       }
-    } else if (existingAttachmentUrl === null) {
-      attachmentUrlToUpdate = null;
     }
 
     const finalAmount =
@@ -193,10 +219,12 @@ export function EditTransactionDialog({
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update transaction');
       }
+      toast.success('Transaction updated successfully.');
       onOpenChange(false);
       onTransactionUpdated();
     } catch (error: any) {
       console.error(error);
+      toast.error(error.message);
       form.setError('root.serverError', { message: error.message });
     }
   }
