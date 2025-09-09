@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { balanceSheet, transactions, categories, items } from '@/lib/db/schema';
 import { sql, sum, eq, lt, gte, lte, and, asc, ne } from 'drizzle-orm';
-import { eachDayOfInterval, format as formatDate } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,41 +12,37 @@ export async function GET(request: NextRequest) {
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - rangeInDays);
 
-    // --- 1. Logika Kartu Saldo (dengan pengecualian "Cash Advanced") ---
+    // --- 1. Logika Kartu Saldo (KEMBALI MENGHITUNG "Cash Advanced") ---
     const allBalanceSheets = await db.select().from(balanceSheet);
     const balanceSheetsWithTotals = await Promise.all(
       allBalanceSheets.map(async (sheet) => {
-        // Pemasukan (tidak termasuk "Cash Advanced")
+        // Pemasukan (termasuk semua kategori)
         const incomeResult = await db
           .select({ total: sum(transactions.amount).mapWith(Number) })
           .from(transactions)
-          .leftJoin(categories, eq(transactions.categoryId, categories.id))
           .where(
             and(
               eq(transactions.balanceSheetId, sheet.id),
               gte(transactions.amount, 0),
-              gte(transactions.date, startDate),
-              ne(categories.name, 'Cash Advanced') // Pengecualian
+              gte(transactions.date, startDate)
             )
           );
         const totalIncome = incomeResult[0]?.total || 0;
 
-        // Pengeluaran (tidak termasuk "Cash Advanced")
+        // Pengeluaran (termasuk semua kategori)
         const expenseResult = await db
           .select({ total: sum(transactions.amount).mapWith(Number) })
           .from(transactions)
-          .leftJoin(categories, eq(transactions.categoryId, categories.id))
           .where(
             and(
               eq(transactions.balanceSheetId, sheet.id),
               lt(transactions.amount, 0),
-              gte(transactions.date, startDate),
-              ne(categories.name, 'Cash Advanced') // Pengecualian
+              gte(transactions.date, startDate)
             )
           );
         const totalExpense = expenseResult[0]?.total || 0;
 
-        // CurrentBalance diambil langsung dari database dan sudah akurat
+        // CurrentBalance diambil langsung dari database
         return { ...sheet, totalIncome, totalExpense };
       })
     );

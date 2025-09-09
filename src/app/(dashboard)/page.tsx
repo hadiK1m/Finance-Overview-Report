@@ -176,46 +176,97 @@ export default function HomePage() {
       {data?.balanceSheets.map((sheet) => (
         <div key={sheet.id} className="mb-8">
           <CardTitle className="mb-4">{sheet.name}</CardTitle>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Current Balance
-                </CardTitle>
-                <Wallet className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(sheet.balance)}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-stretch">
+            {/* Bank-style Balance Card (no white Card background) */}
+            <div className="overflow-hidden rounded-lg h-full">
+              <div className="rounded-lg bg-gradient-to-r from-sky-700 to-sky-900 text-white p-4 flex flex-col h-full">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-sm font-semibold leading-tight">
+                      {sheet.name}
+                    </div>
+                  </div>
+                  <Wallet className="h-6 w-6 opacity-90" />
                 </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Income
-                </CardTitle>
-                <ArrowUp className="h-4 w-4 text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(sheet.totalIncome)}
+
+                <div className="mt-6 flex-1">
+                  <div className="text-xs opacity-90">Balance</div>
+                  <div className="text-2xl font-bold tracking-wider mt-1">
+                    {formatCurrency(sheet.balance)}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Expenses
-                </CardTitle>
-                <ArrowDown className="h-4 w-4 text-red-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(Math.abs(sheet.totalExpense))}
+
+                <div className="mt-6 flex items-center justify-between text-sm opacity-80">
+                  <div className="tracking-widest">
+                    **** **** **** {String(sheet.id ?? '0000').slice(-4)}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[11px]">Account</div>
+                    <div className="font-medium">{sheet.name}</div>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+
+            {/* Bank-style Total Income Card (no white Card background) */}
+            <div className="overflow-hidden rounded-lg h-full">
+              <div className="rounded-lg bg-gradient-to-r from-sky-700 to-sky-900 text-white p-4 flex flex-col h-full">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-xs opacity-90 uppercase">Income</div>
+                    <div className="text-sm font-semibold leading-tight">
+                      {sheet.name === 'Bank'
+                        ? 'Dropping'
+                        : sheet.name === 'Petty Cash'
+                        ? 'Cash Advanced'
+                        : 'Dropping'}
+                    </div>
+                  </div>
+                  <ArrowUp className="h-6 w-6 opacity-90" />
+                </div>
+
+                <div className="mt-6 flex-1">
+                  <div className="text-2xl font-bold">
+                    {formatCurrency(sheet.totalIncome)}
+                  </div>
+                </div>
+
+                <div className="mt-6 text-sm opacity-80">
+                  <div className="text-[11px]">Period</div>
+                  <div className="font-medium">
+                    Last {dateRange.replace('d', ' days')}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bank-style Total Expense Card (no white Card background) */}
+            <div className="overflow-hidden rounded-lg h-full">
+              <div className="rounded-lg bg-gradient-to-r from-sky-700 to-sky-900 text-white p-4 flex flex-col h-full">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-xs opacity-90 uppercase">Expense</div>
+                    <div className="text-sm font-semibold leading-tight">
+                      Total Expenses
+                    </div>
+                  </div>
+                  <ArrowDown className="h-6 w-6 opacity-90" />
+                </div>
+
+                <div className="mt-6 flex-1">
+                  <div className="text-2xl font-bold">
+                    {formatCurrency(Math.abs(sheet.totalExpense))}
+                  </div>
+                </div>
+
+                <div className="mt-6 text-sm opacity-80">
+                  <div className="text-[11px]">Period</div>
+                  <div className="font-medium">
+                    Last {dateRange.replace('d', ' days')}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       ))}
@@ -402,6 +453,13 @@ export default function HomePage() {
                       />
                       <Legend />
 
+                      <Area
+                        type="monotone"
+                        dataKey="income"
+                        stroke="#3b82f6"
+                        fillOpacity={1}
+                        fill="url(#colorOverallIncome)"
+                      />
                       <Area
                         type="monotone"
                         dataKey="expense"
