@@ -39,7 +39,6 @@ const formatCurrency = (value: number) =>
 
 // tambahkan array warna eksplisit (fallback)
 const COLORS = [
-  '#192E6B', // very dark blue / slate
   '#1e3a8a', // indigo-800
   '#2563eb', // blue-600
   '#3b82f6', // blue-500
@@ -47,6 +46,7 @@ const COLORS = [
   '#93c5fd', // blue-300
   '#bfdbfe', // blue-200
   '#e0f2fe', // blue-100
+  '#0f172a', // very dark blue / slate
 ];
 
 // --- KOMPONEN UTAMA ---
