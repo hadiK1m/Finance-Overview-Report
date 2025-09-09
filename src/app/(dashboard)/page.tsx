@@ -130,7 +130,7 @@ export default function HomePage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(false);
-  const [dateRange, setDateRange] = useState('180d');
+  const [dateRange, setDateRange] = useState('365d');
 
   useEffect(() => {
     const fetchData = async () => {
