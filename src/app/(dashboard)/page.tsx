@@ -21,10 +21,10 @@ import {
   Legend,
 } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-// --- PERBAIKAN: Menggunakan path relatif untuk mengatasi error resolusi modul ---
 import { RkapItemBreakdown } from '../../components/rkap/RkapItemBreakdown';
 import { BalanceSheet } from './balancesheet/columns';
 import { ArrowUp, ArrowDown, Wallet, Loader2 } from 'lucide-react';
+import { eachDayOfInterval } from 'date-fns';
 
 // --- INTERFACES ---
 interface BalanceSheetWithTotals extends BalanceSheet {
@@ -43,12 +43,13 @@ interface RkapItemExpense {
 interface DashboardData {
   balanceSheets: BalanceSheetWithTotals[];
   transactionHistory: { date: string; amount: number }[];
-  overallTransactionHistory: { date: string; balance: number }[]; // Data baru untuk grafik overall
+  overallTransactionHistory: { date: string; amount: number }[];
   rkapItemExpenses: RkapItemExpense[];
 }
 
 // --- FUNGSI HELPERS ---
 const formatDailyChartData = (history: { date: string; amount: number }[]) => {
+  if (!history) return [];
   const dailyData: { [key: string]: { income: number; expense: number } } = {};
   history.forEach((tx) => {
     const day = new Date(tx.date).toLocaleDateString('en-CA');
@@ -73,17 +74,48 @@ const formatDailyChartData = (history: { date: string; amount: number }[]) => {
     .sort((a, b) => new Date(a.name).getTime() - new Date(b.name).getTime());
 };
 
-const formatOverallChartData = (
-  history: { date: string; balance: number }[]
+const formatCumulativeChartData = (
+  history: { date: string; amount: number }[],
+  startDate: Date,
+  endDate: Date
 ) => {
-  if (!history || history.length === 0) return [];
-  return history.map((day) => ({
-    name: new Date(day.date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    }),
-    balance: day.balance,
-  }));
+  if (!history || !startDate || !endDate) return [];
+
+  const dailyTotals: { [key: string]: { income: number; expense: number } } =
+    {};
+  history.forEach((tx) => {
+    const day = new Date(tx.date).toLocaleDateString('en-CA');
+    if (!dailyTotals[day]) {
+      dailyTotals[day] = { income: 0, expense: 0 };
+    }
+    if (tx.amount > 0) {
+      dailyTotals[day].income += tx.amount;
+    } else {
+      dailyTotals[day].expense += Math.abs(tx.amount);
+    }
+  });
+
+  const daysInRange = eachDayOfInterval({ start: startDate, end: endDate });
+  let cumulativeIncome = 0;
+  let cumulativeExpense = 0;
+
+  const cumulativeData = daysInRange.map((day) => {
+    const dayString = day.toLocaleDateString('en-CA');
+    if (dailyTotals[dayString]) {
+      cumulativeIncome += dailyTotals[dayString].income;
+      cumulativeExpense += dailyTotals[dayString].expense;
+    }
+    return {
+      name: day.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      }),
+      income: cumulativeIncome,
+      expense: cumulativeExpense,
+    };
+  });
+
+  return cumulativeData;
 };
 
 const formatCurrency = (value: number) =>
@@ -119,11 +151,19 @@ export default function HomePage() {
     fetchData();
   }, [dateRange, pageLoading]);
 
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(endDate.getDate() - parseInt(dateRange.replace('d', '')));
+
   const dailyChartData = data
     ? formatDailyChartData(data.transactionHistory)
     : [];
   const overallChartData = data
-    ? formatOverallChartData(data.overallTransactionHistory)
+    ? formatCumulativeChartData(
+        data.overallTransactionHistory,
+        startDate,
+        endDate
+      )
     : [];
 
   if (pageLoading) {
@@ -184,12 +224,12 @@ export default function HomePage() {
       <Card>
         <Tabs defaultValue="daily">
           <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+            <TabsList className="grid w-full grid-cols-2 max-w-[600px]">
               <TabsTrigger value="daily">
                 Daily Transaction Overview
               </TabsTrigger>
               <TabsTrigger value="overall">
-                Overall Balance Overview
+                Overall Expenses Overview
               </TabsTrigger>
             </TabsList>
             <Select value={dateRange} onValueChange={setDateRange}>
@@ -299,7 +339,7 @@ export default function HomePage() {
                     <AreaChart data={overallChartData}>
                       <defs>
                         <linearGradient
-                          id="colorBalance"
+                          id="colorOverallIncome"
                           x1="0"
                           y1="0"
                           x2="0"
@@ -313,6 +353,24 @@ export default function HomePage() {
                           <stop
                             offset="95%"
                             stopColor="#3b82f6"
+                            stopOpacity={0}
+                          />
+                        </linearGradient>
+                        <linearGradient
+                          id="colorOverallExpense"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="#f97316"
+                            stopOpacity={0.8}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="#f97316"
                             stopOpacity={0}
                           />
                         </linearGradient>
@@ -342,12 +400,14 @@ export default function HomePage() {
                       <RechartsTooltip
                         formatter={(value) => formatCurrency(value as number)}
                       />
+                      <Legend />
+
                       <Area
                         type="monotone"
-                        dataKey="balance"
-                        stroke="#3b82f6"
+                        dataKey="expense"
+                        stroke="#f97316"
                         fillOpacity={1}
-                        fill="url(#colorBalance)"
+                        fill="url(#colorOverallExpense)"
                       />
                     </AreaChart>
                   </ResponsiveContainer>

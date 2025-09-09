@@ -13,33 +13,41 @@ export async function GET(request: NextRequest) {
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - rangeInDays);
 
-    // --- 1. Logika Kartu Saldo ---
+    // --- 1. Logika Kartu Saldo (dengan pengecualian "Cash Advanced") ---
     const allBalanceSheets = await db.select().from(balanceSheet);
     const balanceSheetsWithTotals = await Promise.all(
       allBalanceSheets.map(async (sheet) => {
+        // Pemasukan (tidak termasuk "Cash Advanced")
         const incomeResult = await db
           .select({ total: sum(transactions.amount).mapWith(Number) })
           .from(transactions)
+          .leftJoin(categories, eq(transactions.categoryId, categories.id))
           .where(
             and(
               eq(transactions.balanceSheetId, sheet.id),
               gte(transactions.amount, 0),
-              gte(transactions.date, startDate) // Filter berdasarkan rentang tanggal
+              gte(transactions.date, startDate),
+              ne(categories.name, 'Cash Advanced') // Pengecualian
             )
           );
         const totalIncome = incomeResult[0]?.total || 0;
 
+        // Pengeluaran (tidak termasuk "Cash Advanced")
         const expenseResult = await db
           .select({ total: sum(transactions.amount).mapWith(Number) })
           .from(transactions)
+          .leftJoin(categories, eq(transactions.categoryId, categories.id))
           .where(
             and(
               eq(transactions.balanceSheetId, sheet.id),
               lt(transactions.amount, 0),
-              gte(transactions.date, startDate) // Filter berdasarkan rentang tanggal
+              gte(transactions.date, startDate),
+              ne(categories.name, 'Cash Advanced') // Pengecualian
             )
           );
         const totalExpense = expenseResult[0]?.total || 0;
+
+        // CurrentBalance diambil langsung dari database dan sudah akurat
         return { ...sheet, totalIncome, totalExpense };
       })
     );
@@ -63,7 +71,7 @@ export async function GET(request: NextRequest) {
         and(
           gte(transactions.date, startDate),
           lte(transactions.date, endDate),
-          ne(categories.name, 'Cash Advanced') // Pengecualian transaksi "Cash Advanced"
+          ne(categories.name, 'Cash Advanced')
         )
       )
       .orderBy(asc(transactions.date));
