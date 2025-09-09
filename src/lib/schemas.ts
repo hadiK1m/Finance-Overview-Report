@@ -14,17 +14,17 @@ export const transactionFormSchema = z.object({
   balanceSheetId: z
     .string()
     .min(1, { message: 'Please select a balance sheet.' }),
-  // Ubah menjadi nullable agar bisa di-reset
-  attachment: z.instanceof(File).optional().nullable(),
+  // --- PERBAIKAN: Membuat validasi File hanya berjalan di sisi client ---
+  attachment:
+    typeof window === 'undefined'
+      ? z.any()
+      : z.instanceof(File).optional().nullable(),
 });
 
-// === PERBARUI SKEMA API DI BAWAH INI ===
+// Skema untuk API tetap sama dan aman untuk server
 export const apiTransactionSchema = transactionFormSchema
-  // Hapus validasi untuk 'attachment' karena API tidak menerima File object
   .omit({ attachment: true })
   .extend({
-    // Tetap transformasikan date dari string ke Date object
     date: z.string().transform((str) => new Date(str)),
-    // Pastikan attachmentUrl bisa string, opsional, atau null
     attachmentUrl: z.string().optional().nullable(),
   });
