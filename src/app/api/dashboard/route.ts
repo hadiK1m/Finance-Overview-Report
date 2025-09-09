@@ -2,16 +2,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { balanceSheet, transactions, categories, items } from '@/lib/db/schema';
-import { sql, sum, eq } from 'drizzle-orm';
+import { sql, sum, eq, lt, gte, lte, and, asc, ne } from 'drizzle-orm';
+import { eachDayOfInterval, format as formatDate } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const rangeInDays = parseInt(searchParams.get('range') || '180', 10);
-    const dateLimit = new Date();
-    dateLimit.setDate(dateLimit.getDate() - rangeInDays);
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - rangeInDays);
 
-    // --- 1. Logika Kartu Saldo (Tidak Berubah) ---
+    // --- 1. Logika Kartu Saldo ---
     const allBalanceSheets = await db.select().from(balanceSheet);
     const balanceSheetsWithTotals = await Promise.all(
       allBalanceSheets.map(async (sheet) => {
@@ -19,28 +21,54 @@ export async function GET(request: NextRequest) {
           .select({ total: sum(transactions.amount).mapWith(Number) })
           .from(transactions)
           .where(
-            sql`${transactions.balanceSheetId} = ${sheet.id} AND ${transactions.amount} > 0`
+            and(
+              eq(transactions.balanceSheetId, sheet.id),
+              gte(transactions.amount, 0),
+              gte(transactions.date, startDate) // Filter berdasarkan rentang tanggal
+            )
           );
         const totalIncome = incomeResult[0]?.total || 0;
+
         const expenseResult = await db
           .select({ total: sum(transactions.amount).mapWith(Number) })
           .from(transactions)
           .where(
-            sql`${transactions.balanceSheetId} = ${sheet.id} AND ${transactions.amount} < 0`
+            and(
+              eq(transactions.balanceSheetId, sheet.id),
+              lt(transactions.amount, 0),
+              gte(transactions.date, startDate) // Filter berdasarkan rentang tanggal
+            )
           );
         const totalExpense = expenseResult[0]?.total || 0;
         return { ...sheet, totalIncome, totalExpense };
       })
     );
 
-    // --- 2. Logika Grafik Area (Tidak Berubah) ---
-    const transactionHistory = await db
+    // --- 2. Logika Grafik ---
+    // a. Daily transaction history (untuk grafik harian, termasuk semua transaksi)
+    const dailyTransactionHistory = await db
       .select({ date: transactions.date, amount: transactions.amount })
       .from(transactions)
-      .where(sql`${transactions.date} >= ${dateLimit.toISOString()}`)
-      .orderBy(transactions.date);
+      .where(
+        and(gte(transactions.date, startDate), lte(transactions.date, endDate))
+      )
+      .orderBy(asc(transactions.date));
 
-    // --- 3. Logika Pie Chart per Item dalam Kategori RKAP (Tidak Berubah) ---
+    // b. Overall Transactions Overview (transaksi harian TANPA "Cash Advanced")
+    const overallTransactionHistory = await db
+      .select({ date: transactions.date, amount: transactions.amount })
+      .from(transactions)
+      .leftJoin(categories, eq(transactions.categoryId, categories.id))
+      .where(
+        and(
+          gte(transactions.date, startDate),
+          lte(transactions.date, endDate),
+          ne(categories.name, 'Cash Advanced') // Pengecualian transaksi "Cash Advanced"
+        )
+      )
+      .orderBy(asc(transactions.date));
+
+    // --- 3. Logika Pie Chart per Item dalam Kategori RKAP ---
     const itemExpensesByCategoryRaw = await db
       .select({
         categoryName: categories.name,
@@ -52,9 +80,12 @@ export async function GET(request: NextRequest) {
       .innerJoin(items, eq(transactions.itemId, items.id))
       .innerJoin(categories, eq(transactions.categoryId, categories.id))
       .where(
-        sql`${transactions.date} >= ${dateLimit.toISOString()} AND ${
-          transactions.amount
-        } < 0 AND ${categories.name} != 'Cash Advanced'`
+        and(
+          gte(transactions.date, startDate),
+          lte(transactions.date, endDate),
+          lt(transactions.amount, 0),
+          ne(categories.name, 'Cash Advanced')
+        )
       )
       .groupBy(categories.name, categories.budget, items.name)
       .orderBy(categories.name, sql`sum(${transactions.amount})`);
@@ -84,8 +115,8 @@ export async function GET(request: NextRequest) {
     // --- Mengembalikan semua data yang diperlukan ---
     return NextResponse.json({
       balanceSheets: balanceSheetsWithTotals,
-      transactionHistory,
-      // rkapBreakdown: formattedRkapBreakdown, // <-- LOGIKA INI DIHAPUS
+      transactionHistory: dailyTransactionHistory,
+      overallTransactionHistory: overallTransactionHistory,
       rkapItemExpenses: rkapItemExpenses,
     });
   } catch (error) {
