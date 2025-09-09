@@ -172,6 +172,21 @@ export default function HomePage() {
 
   return (
     <div className="space-y-8">
+      {/* Select range — pindahkan ke pojok kanan atas konten */}
+      <div className="flex items-center justify-end">
+        <div className="w-full md:w-auto md:mr-4">
+          <Select value={dateRange} onValueChange={setDateRange}>
+            <SelectTrigger className="w-full md:w-[180px]">
+              <SelectValue placeholder="Select a range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="30d">Last 30 Days</SelectItem>
+              <SelectItem value="180d">Last 6 Months</SelectItem>
+              <SelectItem value="365d">Last 1 Year</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
       {/* Bagian Card Saldo */}
       {data?.balanceSheets.map((sheet) => (
         <div key={sheet.id} className="mb-8">
@@ -179,7 +194,7 @@ export default function HomePage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-stretch">
             {/* Bank-style Balance Card (no white Card background) */}
             <div className="overflow-hidden rounded-lg h-full">
-              <div className="rounded-lg bg-gradient-to-r from-sky-700 to-sky-900 text-white p-4 flex flex-col h-full">
+              <div className="rounded-lg bg-gradient-to-r from-sky-700 to-sky-800 text-white p-4 flex flex-col h-full">
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="text-sm font-semibold leading-tight">
@@ -210,7 +225,7 @@ export default function HomePage() {
 
             {/* Bank-style Total Income Card (no white Card background) */}
             <div className="overflow-hidden rounded-lg h-full">
-              <div className="rounded-lg bg-gradient-to-r from-sky-700 to-sky-900 text-white p-4 flex flex-col h-full">
+              <div className="rounded-lg bg-gradient-to-r from-sky-700 to-sky-800 text-white p-4 flex flex-col h-full">
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="text-xs opacity-90 uppercase">Income</div>
@@ -242,7 +257,7 @@ export default function HomePage() {
 
             {/* Bank-style Total Expense Card (no white Card background) */}
             <div className="overflow-hidden rounded-lg h-full">
-              <div className="rounded-lg bg-gradient-to-r from-sky-700 to-sky-900 text-white p-4 flex flex-col h-full">
+              <div className="rounded-lg bg-gradient-to-r from-sky-700 to-sky-800 text-white p-4 flex flex-col h-full">
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="text-xs opacity-90 uppercase">Expense</div>
@@ -283,16 +298,6 @@ export default function HomePage() {
                 Overall Expenses Overview
               </TabsTrigger>
             </TabsList>
-            <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Select a range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="30d">Last 30 Days</SelectItem>
-                <SelectItem value="180d">Last 6 Months</SelectItem>
-                <SelectItem value="365d">Last 1 Year</SelectItem>
-              </SelectContent>
-            </Select>
           </CardHeader>
           <CardContent className="pl-2">
             {chartLoading ? (

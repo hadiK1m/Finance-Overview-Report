@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { balanceSheet, transactions, categories, items } from '@/lib/db/schema';
-import { sql, sum, eq, lt, gte, lte, and, asc, ne } from 'drizzle-orm';
+import { sql, sum, eq, lt, gte, lte, and, asc, ne, or } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
       .orderBy(asc(transactions.date));
 
     // b. Overall Transactions Overview (transaksi harian TANPA "Cash Advanced")
+    // Include Cash Advanced only for income (amount >= 0), exclude it for expenses
     const overallTransactionHistory = await db
       .select({ date: transactions.date, amount: transactions.amount })
       .from(transactions)
@@ -66,7 +67,8 @@ export async function GET(request: NextRequest) {
         and(
           gte(transactions.date, startDate),
           lte(transactions.date, endDate),
-          ne(categories.name, 'Cash Advanced')
+          // allow Cash Advanced when amount >= 0, otherwise exclude Cash Advanced expenses
+          or(ne(categories.name, 'Cash Advanced'), gte(transactions.amount, 0))
         )
       )
       .orderBy(asc(transactions.date));
