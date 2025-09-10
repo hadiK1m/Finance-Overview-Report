@@ -38,7 +38,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DateRangePicker } from './date-range-picker';
 import { DateRange } from 'react-day-picker';
-import { Download, EyeOff, Loader2 } from 'lucide-react';
+import { Download, EyeOff, Loader2, FileUp } from 'lucide-react';
+import Papa from 'papaparse';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -48,7 +49,7 @@ interface DataTableProps<TData, TValue> {
   onDelete?: (selectedIds: number[]) => Promise<void>;
   meta?: any;
   exportButtonLabel?: string;
-  toolbarActions?: React.ReactNode; // Prop baru untuk tombol tambahan
+  toolbarActions?: React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -59,7 +60,7 @@ export function DataTable<TData, TValue>({
   onDelete,
   meta,
   exportButtonLabel = 'Export',
-  toolbarActions, // Ambil prop baru
+  toolbarActions,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -75,6 +76,7 @@ export function DataTable<TData, TValue>({
   });
 
   const [isExporting, setIsExporting] = React.useState(false);
+  const [isExportingCsv, setIsExportingCsv] = React.useState(false);
 
   const table = useReactTable({
     data,
@@ -99,6 +101,46 @@ export function DataTable<TData, TValue>({
       globalFilter,
     },
   });
+
+  // --- FUNGSI EKSPOR CSV YANG DIMODIFIKASI ---
+  const handleExportSelected = () => {
+    setIsExportingCsv(true);
+    try {
+      const selectedRows = table
+        .getFilteredSelectedRowModel()
+        .rows.map((row) => row.original as any);
+
+      if (selectedRows.length === 0) {
+        alert('Please select rows to export.');
+        return;
+      }
+
+      // Format data agar sesuai dengan format impor
+      const formattedData = selectedRows.map((row) => ({
+        date: new Date(row.date).toLocaleDateString('en-CA'), // Format: YYYY-MM-DD
+        itemName: row.item?.name || '',
+        payee: row.payee,
+        amount: row.amount,
+        balanceSheetName: row.balanceSheet?.name || '',
+      }));
+
+      const csv = Papa.unparse(formattedData);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'export_for_import.csv'); // Nama file baru
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('CSV Export failed:', error);
+      alert('An error occurred during the CSV export.');
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
+  // --- AKHIR DARI FUNGSI YANG DIMODIFIKASI ---
 
   const handleExport = async () => {
     if (!dateRange?.from || !dateRange?.to) {
@@ -163,23 +205,38 @@ export function DataTable<TData, TValue>({
 
         <div className="ml-auto flex items-center space-x-2">
           {table.getFilteredSelectedRowModel().rows.length > 0 && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={async () => {
-                if (!onDelete) return;
-                const selectedIds = table
-                  .getFilteredSelectedRowModel()
-                  .rows.map((row) => (row.original as any).id);
-                await onDelete(selectedIds);
-                table.resetRowSelection();
-              }}
-              disabled={!onDelete}
-            >
-              Delete ({table.getFilteredSelectedRowModel().rows.length})
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportSelected}
+                disabled={isExportingCsv}
+              >
+                {isExportingCsv ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <FileUp className="mr-2 h-4 w-4" />
+                )}
+                Export CSV ({table.getFilteredSelectedRowModel().rows.length})
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={async () => {
+                  if (!onDelete) return;
+                  const selectedIds = table
+                    .getFilteredSelectedRowModel()
+                    .rows.map((row) => (row.original as any).id);
+                  await onDelete(selectedIds);
+                  table.resetRowSelection();
+                }}
+                disabled={!onDelete}
+              >
+                Delete ({table.getFilteredSelectedRowModel().rows.length})
+              </Button>
+            </>
           )}
-          {toolbarActions} {/* Render tombol tambahan di sini */}
+          {toolbarActions}
           <Button
             variant="outline"
             onClick={handleExport}
