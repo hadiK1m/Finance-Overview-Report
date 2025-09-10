@@ -47,31 +47,74 @@ export async function GET(request: NextRequest) {
       })
     );
 
+    // Pastikan urutan balance sheets: Bank dulu, lalu Petty Cash, sisanya mengikuti urutan asli
+    // gunakan perbandingan case-insensitive dan kemudian deduplikasi (id+name)
+    const orderedBalanceSheets = (() => {
+      const lower = (v: any) => String(v ?? '').toLowerCase();
+      const bank =
+        balanceSheetsWithTotals.find((s) => lower(s.name) === 'bank') ?? null;
+      const petty =
+        balanceSheetsWithTotals.find((s) => lower(s.name) === 'petty cash') ??
+        null;
+      const others = balanceSheetsWithTotals.filter(
+        (s) => lower(s.name) !== 'bank' && lower(s.name) !== 'petty cash'
+      );
+      const result: typeof balanceSheetsWithTotals = [];
+      if (bank) result.push(bank);
+      if (petty) result.push(petty);
+      result.push(...others);
+
+      // dedupe berdasarkan id+name, pertahankan urutan; juga tambahkan uid unik untuk keperluan UI
+      const seen = new Map<string, any>();
+      const deduped: any[] = [];
+      for (const s of result) {
+        const key = `${s.id}-${String(s.name).toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.set(key, true);
+          // tambah uid untuk memastikan frontend bisa memakai key unik tanpa memodifikasi id primer
+          deduped.push({
+            ...s,
+            uid: `${s.id}-${String(s.name).replace(/\s+/g, '-').toLowerCase()}`,
+          });
+        }
+      }
+      return deduped;
+    })();
+
     // --- 2. Logika Grafik ---
-    // a. Daily transaction history (untuk grafik harian, termasuk semua transaksi)
+    // a. Daily transaction history (agg per day, termasuk semua transaksi)
+    // group by calendar date to avoid splitting by time component
     const dailyTransactionHistory = await db
-      .select({ date: transactions.date, amount: transactions.amount })
+      .select({
+        date: sql`date(${transactions.date})`,
+        amount: sum(transactions.amount).mapWith(Number),
+      })
       .from(transactions)
       .where(
         and(gte(transactions.date, startDate), lte(transactions.date, endDate))
       )
-      .orderBy(asc(transactions.date));
+      .groupBy(sql`date(${transactions.date})`)
+      .orderBy(asc(sql`date(${transactions.date})`));
 
-    // b. Overall Transactions Overview (transaksi harian TANPA "Cash Advanced")
-    // Include Cash Advanced only for income (amount >= 0), exclude it for expenses
+    // b. Overall Transactions Overview (agg per day)
+    // Include Cash Advanced transactions when amount >= 0 (income),
+    // exclude Cash Advanced expenses (amount < 0)
     const overallTransactionHistory = await db
-      .select({ date: transactions.date, amount: transactions.amount })
+      .select({
+        date: sql`date(${transactions.date})`,
+        amount: sum(transactions.amount).mapWith(Number),
+      })
       .from(transactions)
       .leftJoin(categories, eq(transactions.categoryId, categories.id))
       .where(
         and(
           gte(transactions.date, startDate),
           lte(transactions.date, endDate),
-          // allow Cash Advanced when amount >= 0, otherwise exclude Cash Advanced expenses
           or(ne(categories.name, 'Cash Advanced'), gte(transactions.amount, 0))
         )
       )
-      .orderBy(asc(transactions.date));
+      .groupBy(sql`date(${transactions.date})`)
+      .orderBy(asc(sql`date(${transactions.date})`));
 
     // --- 3. Logika Pie Chart per Item dalam Kategori RKAP ---
     const itemExpensesByCategoryRaw = await db
@@ -119,7 +162,8 @@ export async function GET(request: NextRequest) {
 
     // --- Mengembalikan semua data yang diperlukan ---
     return NextResponse.json({
-      balanceSheets: balanceSheetsWithTotals,
+      // balanceSheets sekarang sudah deduplikasi dan punya field `uid` unik per entry
+      balanceSheets: orderedBalanceSheets,
       transactionHistory: dailyTransactionHistory,
       overallTransactionHistory: overallTransactionHistory,
       rkapItemExpenses: rkapItemExpenses,

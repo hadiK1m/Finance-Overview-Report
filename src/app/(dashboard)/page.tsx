@@ -50,14 +50,15 @@ interface DashboardData {
 // --- FUNGSI HELPERS ---
 const formatDailyChartData = (history: { date: string; amount: number }[]) => {
   if (!history) return [];
-  const dailyData: { [key: string]: { income: number; expense: number } } = {};
+  const dailyData: { [key: string]: { dropping: number; expense: number } } =
+    {};
   history.forEach((tx) => {
     const day = new Date(tx.date).toLocaleDateString('en-CA');
     if (!dailyData[day]) {
-      dailyData[day] = { income: 0, expense: 0 };
+      dailyData[day] = { dropping: 0, expense: 0 };
     }
     if (tx.amount > 0) {
-      dailyData[day].income += tx.amount;
+      dailyData[day].dropping += tx.amount;
     } else {
       dailyData[day].expense += Math.abs(tx.amount);
     }
@@ -68,7 +69,7 @@ const formatDailyChartData = (history: { date: string; amount: number }[]) => {
         month: 'short',
         day: 'numeric',
       }),
-      income: dailyData[day].income,
+      dropping: dailyData[day].dropping,
       expense: dailyData[day].expense,
     }))
     .sort((a, b) => new Date(a.name).getTime() - new Date(b.name).getTime());
@@ -81,28 +82,28 @@ const formatCumulativeChartData = (
 ) => {
   if (!history || !startDate || !endDate) return [];
 
-  const dailyTotals: { [key: string]: { income: number; expense: number } } =
+  const dailyTotals: { [key: string]: { dropping: number; expense: number } } =
     {};
   history.forEach((tx) => {
     const day = new Date(tx.date).toLocaleDateString('en-CA');
     if (!dailyTotals[day]) {
-      dailyTotals[day] = { income: 0, expense: 0 };
+      dailyTotals[day] = { dropping: 0, expense: 0 };
     }
     if (tx.amount > 0) {
-      dailyTotals[day].income += tx.amount;
+      dailyTotals[day].dropping += tx.amount;
     } else {
       dailyTotals[day].expense += Math.abs(tx.amount);
     }
   });
 
   const daysInRange = eachDayOfInterval({ start: startDate, end: endDate });
-  let cumulativeIncome = 0;
+  let cumulativeDropping = 0;
   let cumulativeExpense = 0;
 
   const cumulativeData = daysInRange.map((day) => {
     const dayString = day.toLocaleDateString('en-CA');
     if (dailyTotals[dayString]) {
-      cumulativeIncome += dailyTotals[dayString].income;
+      cumulativeDropping += dailyTotals[dayString].dropping;
       cumulativeExpense += dailyTotals[dayString].expense;
     }
     return {
@@ -110,7 +111,7 @@ const formatCumulativeChartData = (
         month: 'short',
         day: 'numeric',
       }),
-      income: cumulativeIncome,
+      dropping: cumulativeDropping,
       expense: cumulativeExpense,
     };
   });
@@ -170,18 +171,28 @@ export default function HomePage() {
   const orderedBalanceSheets = data
     ? (() => {
         const sheets = data.balanceSheets || [];
-        const bank = sheets.find((s) => s.name === 'Bank') ?? null;
+        const BANK = sheets.find((s) => s.name === 'BANK') ?? null;
         const petty = sheets.find((s) => s.name === 'Petty Cash') ?? null;
         const others = sheets.filter(
           (s) => s.name !== 'Bank' && s.name !== 'Petty Cash'
         );
         const result: typeof sheets = [];
-        if (bank) result.push(bank);
+        if (BANK) result.push(BANK);
         if (petty) result.push(petty);
         result.push(...others);
         return result;
       })()
     : [];
+
+  // hapus duplikat berdasarkan id+name, pertahankan urutan
+  const dedupedOrderedBalanceSheets = Array.from(
+    new Map(
+      orderedBalanceSheets.map((s) => [
+        `${s.id}-${String(s.name).toLowerCase()}`,
+        s,
+      ])
+    ).values()
+  );
 
   if (pageLoading) {
     return <div className="p-8">Loading dashboard...</div>;
@@ -205,7 +216,7 @@ export default function HomePage() {
         </div>
       </div>
       {/* Bagian Card Saldo */}
-      {orderedBalanceSheets.map((sheet) => (
+      {dedupedOrderedBalanceSheets.map((sheet) => (
         <div key={sheet.id} className="mb-8">
           <CardTitle className="mb-4">{sheet.name}</CardTitle>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-stretch">
@@ -229,10 +240,7 @@ export default function HomePage() {
                 </div>
 
                 <div className="mt-6 flex items-center justify-between text-sm opacity-80">
-                  <div className="tracking-widest">
-                    **** **** **** {String(sheet.id ?? '0000').slice(-4)}
-                  </div>
-                  <div className="text-right">
+                  <div className="text-left">
                     <div className="text-[11px]">Account</div>
                     <div className="font-medium">{sheet.name}</div>
                   </div>
@@ -328,7 +336,7 @@ export default function HomePage() {
                     <AreaChart data={dailyChartData}>
                       <defs>
                         <linearGradient
-                          id="colorIncome"
+                          id="colorDropping"
                           x1="0"
                           y1="0"
                           x2="0"
@@ -392,10 +400,11 @@ export default function HomePage() {
                       <Legend />
                       <Area
                         type="monotone"
-                        dataKey="income"
+                        dataKey="dropping"
+                        name="dropping"
                         stroke="#10b981"
                         fillOpacity={1}
-                        fill="url(#colorIncome)"
+                        fill="url(#colorDropping)"
                       />
                       <Area
                         type="monotone"
@@ -412,7 +421,7 @@ export default function HomePage() {
                     <AreaChart data={overallChartData}>
                       <defs>
                         <linearGradient
-                          id="colorOverallIncome"
+                          id="colorOverallDropping"
                           x1="0"
                           y1="0"
                           x2="0"
@@ -477,10 +486,11 @@ export default function HomePage() {
 
                       <Area
                         type="monotone"
-                        dataKey="income"
+                        dataKey="dropping"
+                        name="dropping"
                         stroke="#3b82f6"
                         fillOpacity={1}
-                        fill="url(#colorOverallIncome)"
+                        fill="url(#colorOverallDropping)"
                       />
                       <Area
                         type="monotone"
