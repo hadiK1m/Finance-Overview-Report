@@ -29,18 +29,22 @@ export async function GET(request: NextRequest) {
           );
         const totalIncome = incomeResult[0]?.total || 0;
 
-        // Pengeluaran (termasuk semua kategori)
+        // === PERUBAHAN LOGIKA DI SINI ===
+        // Pengeluaran sekarang tidak menghitung "Cash Advanced"
         const expenseResult = await db
           .select({ total: sum(transactions.amount).mapWith(Number) })
           .from(transactions)
+          .leftJoin(categories, eq(transactions.categoryId, categories.id))
           .where(
             and(
               eq(transactions.balanceSheetId, sheet.id),
               lt(transactions.amount, 0),
-              gte(transactions.date, startDate)
+              gte(transactions.date, startDate),
+              ne(categories.name, 'Cash Advanced') // <-- Tambahkan kondisi ini
             )
           );
         const totalExpense = expenseResult[0]?.total || 0;
+        // === AKHIR DARI PERUBAHAN ===
 
         // CurrentBalance diambil langsung dari database
         return { ...sheet, totalIncome, totalExpense };
