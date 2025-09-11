@@ -44,11 +44,9 @@ export default function ItemsPage() {
         throw new Error('Failed to delete items');
       }
 
-      // Refresh data tabel setelah berhasil menghapus
       await fetchItems();
     } catch (error) {
       console.error(error);
-      // Anda bisa menambahkan notifikasi error untuk pengguna di sini
     }
   };
 
@@ -81,6 +79,8 @@ export default function ItemsPage() {
             meta={{
               onEdit: handleEdit,
             }}
+            // --- TAMBAHKAN PROPERTI INI ---
+            showItemReportButton={true}
           />
         )}
       </div>

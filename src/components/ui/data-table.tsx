@@ -38,7 +38,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DateRangePicker } from './date-range-picker';
 import { DateRange } from 'react-day-picker';
-import { Download, EyeOff, Loader2, FileUp } from 'lucide-react';
+import { Download, EyeOff, Loader2, FileUp, FileText } from 'lucide-react'; // <-- Impor ikon baru
 import Papa from 'papaparse';
 
 interface DataTableProps<TData, TValue> {
@@ -50,6 +50,8 @@ interface DataTableProps<TData, TValue> {
   meta?: any;
   exportButtonLabel?: string;
   toolbarActions?: React.ReactNode;
+  // --- TAMBAHKAN PROPERTI BARU ---
+  showItemReportButton?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -61,6 +63,8 @@ export function DataTable<TData, TValue>({
   meta,
   exportButtonLabel = 'Export',
   toolbarActions,
+  // --- GUNAKAN PROPERTI BARU ---
+  showItemReportButton = false,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -77,6 +81,9 @@ export function DataTable<TData, TValue>({
 
   const [isExporting, setIsExporting] = React.useState(false);
   const [isExportingCsv, setIsExportingCsv] = React.useState(false);
+  // --- STATE BARU UNTUK LAPORAN ITEM ---
+  const [isExportingItemReport, setIsExportingItemReport] =
+    React.useState(false);
 
   const table = useReactTable({
     data,
@@ -102,7 +109,54 @@ export function DataTable<TData, TValue>({
     },
   });
 
-  // --- FUNGSI EKSPOR CSV YANG DIMODIFIKASI ---
+  // --- FUNGSI BARU UNTUK LAPORAN PER ITEM ---
+  const handleExportItemsReport = async () => {
+    if (!dateRange?.from || !dateRange?.to) {
+      alert('Please select a date range to generate the report.');
+      return;
+    }
+    const selectedIds = table
+      .getFilteredSelectedRowModel()
+      .rows.map((row) => (row.original as any).id);
+
+    if (selectedIds.length === 0) {
+      alert('Please select items to include in the report.');
+      return;
+    }
+
+    setIsExportingItemReport(true);
+    try {
+      const response = await fetch('/api/report/by-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemIds: selectedIds,
+          startDate: dateRange.from.toISOString(),
+          endDate: dateRange.to.toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to generate item report');
+      }
+
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'Laporan_per_Item.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error: any) {
+      console.error('Item Report Export failed:', error);
+      alert(`An error occurred: ${error.message}`);
+    } finally {
+      setIsExportingItemReport(false);
+    }
+  };
+
   const handleExportSelected = () => {
     setIsExportingCsv(true);
     try {
@@ -115,9 +169,8 @@ export function DataTable<TData, TValue>({
         return;
       }
 
-      // Format data agar sesuai dengan format impor
       const formattedData = selectedRows.map((row) => ({
-        date: new Date(row.date).toLocaleDateString('en-CA'), // Format: YYYY-MM-DD
+        date: new Date(row.date).toLocaleDateString('en-CA'),
         itemName: row.item?.name || '',
         payee: row.payee,
         amount: row.amount,
@@ -129,7 +182,7 @@ export function DataTable<TData, TValue>({
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', 'export_for_import.csv'); // Nama file baru
+      link.setAttribute('download', 'export_for_import.csv');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -140,7 +193,6 @@ export function DataTable<TData, TValue>({
       setIsExportingCsv(false);
     }
   };
-  // --- AKHIR DARI FUNGSI YANG DIMODIFIKASI ---
 
   const handleExport = async () => {
     if (!dateRange?.from || !dateRange?.to) {
@@ -206,19 +258,38 @@ export function DataTable<TData, TValue>({
         <div className="ml-auto flex items-center space-x-2">
           {table.getFilteredSelectedRowModel().rows.length > 0 && (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportSelected}
-                disabled={isExportingCsv}
-              >
-                {isExportingCsv ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <FileUp className="mr-2 h-4 w-4" />
-                )}
-                Export CSV ({table.getFilteredSelectedRowModel().rows.length})
-              </Button>
+              {/* --- TOMBOL BARU DITAMPILKAN SECARA KONDISIONAL --- */}
+              {showItemReportButton && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportItemsReport}
+                  disabled={isExportingItemReport}
+                >
+                  {isExportingItemReport ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="mr-2 h-4 w-4" />
+                  )}
+                  Report Laporan (
+                  {table.getFilteredSelectedRowModel().rows.length})
+                </Button>
+              )}
+              {!showItemReportButton && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportSelected}
+                  disabled={isExportingCsv}
+                >
+                  {isExportingCsv ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileUp className="mr-2 h-4 w-4" />
+                  )}
+                  Export CSV ({table.getFilteredSelectedRowModel().rows.length})
+                </Button>
+              )}
               <Button
                 variant="destructive"
                 size="sm"
