@@ -38,7 +38,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DateRangePicker } from './date-range-picker';
 import { DateRange } from 'react-day-picker';
-import { Download, EyeOff, Loader2, FileUp, FileText } from 'lucide-react'; // <-- Impor ikon baru
+import { Download, EyeOff, Loader2, FileUp, FileText } from 'lucide-react';
 import Papa from 'papaparse';
 
 interface DataTableProps<TData, TValue> {
@@ -50,8 +50,7 @@ interface DataTableProps<TData, TValue> {
   meta?: any;
   exportButtonLabel?: string;
   toolbarActions?: React.ReactNode;
-  // --- TAMBAHKAN PROPERTI BARU ---
-  showItemReportButton?: boolean;
+  showTransactionReportButton?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -63,8 +62,7 @@ export function DataTable<TData, TValue>({
   meta,
   exportButtonLabel = 'Export',
   toolbarActions,
-  // --- GUNAKAN PROPERTI BARU ---
-  showItemReportButton = false,
+  showTransactionReportButton = false,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -81,7 +79,6 @@ export function DataTable<TData, TValue>({
 
   const [isExporting, setIsExporting] = React.useState(false);
   const [isExportingCsv, setIsExportingCsv] = React.useState(false);
-  // --- STATE BARU UNTUK LAPORAN ITEM ---
   const [isExportingItemReport, setIsExportingItemReport] =
     React.useState(false);
 
@@ -109,30 +106,26 @@ export function DataTable<TData, TValue>({
     },
   });
 
-  // --- FUNGSI BARU UNTUK LAPORAN PER ITEM ---
-  const handleExportItemsReport = async () => {
-    if (!dateRange?.from || !dateRange?.to) {
-      alert('Please select a date range to generate the report.');
-      return;
-    }
+  // --- FUNGSI EKSPOR LAPORAN YANG DIPERBARUI ---
+  const handleExportTransactionsReport = async () => {
+    // Menghapus pengecekan rentang tanggal dari sini
     const selectedIds = table
       .getFilteredSelectedRowModel()
       .rows.map((row) => (row.original as any).id);
 
     if (selectedIds.length === 0) {
-      alert('Please select items to include in the report.');
+      alert('Please select transactions to include in the report.');
       return;
     }
 
     setIsExportingItemReport(true);
     try {
+      // Menghapus startDate dan endDate dari body request
       const response = await fetch('/api/report/by-item', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          itemIds: selectedIds,
-          startDate: dateRange.from.toISOString(),
-          endDate: dateRange.to.toISOString(),
+          transactionIds: selectedIds,
         }),
       });
 
@@ -258,12 +251,11 @@ export function DataTable<TData, TValue>({
         <div className="ml-auto flex items-center space-x-2">
           {table.getFilteredSelectedRowModel().rows.length > 0 && (
             <>
-              {/* --- TOMBOL BARU DITAMPILKAN SECARA KONDISIONAL --- */}
-              {showItemReportButton && (
+              {showTransactionReportButton ? (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleExportItemsReport}
+                  onClick={handleExportTransactionsReport}
                   disabled={isExportingItemReport}
                 >
                   {isExportingItemReport ? (
@@ -271,11 +263,10 @@ export function DataTable<TData, TValue>({
                   ) : (
                     <FileText className="mr-2 h-4 w-4" />
                   )}
-                  Report Laporan (
+                  Report Items (
                   {table.getFilteredSelectedRowModel().rows.length})
                 </Button>
-              )}
-              {!showItemReportButton && (
+              ) : (
                 <Button
                   variant="outline"
                   size="sm"

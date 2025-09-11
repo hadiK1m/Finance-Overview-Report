@@ -1,14 +1,15 @@
 // src/app/api/report/by-item/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { transactions, items, users } from '@/lib/db/schema';
-import { sql, and, gte, lte, eq, lt, inArray, desc } from 'drizzle-orm';
+import { transactions, items, users, categories } from '@/lib/db/schema';
+// --- PERBAIKAN: Menghapus 'distinct' dari impor ---
+import { and, eq, lt, inArray, desc } from 'drizzle-orm';
 import * as xlsx from 'xlsx-js-style';
-import { format, getMonth, getYear } from 'date-fns';
+import { format, getMonth, getYear, min, max } from 'date-fns';
 import { id as indonesiaLocale } from 'date-fns/locale';
 import { decrypt } from '@/lib/auth';
 
-// Helper untuk mendapatkan sesi pengguna (opsional, tapi bagus untuk keamanan)
+// Helper untuk mendapatkan sesi pengguna
 async function getUserSession(request: NextRequest) {
   const token = request.cookies.get('session_token')?.value;
   if (!token) return null;
@@ -44,77 +45,88 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { itemIds, startDate, endDate } = body;
+    const { transactionIds } = body;
 
     if (
-      !itemIds ||
-      !Array.isArray(itemIds) ||
-      itemIds.length === 0 ||
-      !startDate ||
-      !endDate
+      !transactionIds ||
+      !Array.isArray(transactionIds) ||
+      transactionIds.length === 0
     ) {
       return NextResponse.json(
-        { message: 'Item IDs and date range are required.' },
+        { message: 'Transaction IDs are required.' },
         { status: 400 }
       );
     }
 
-    const reportYear = getYear(new Date(startDate));
-
-    // Ambil semua transaksi pengeluaran untuk item yang dipilih dalam rentang tanggal
-    const relevantTransactions = await db
+    const selectedTransactions = await db
       .select({
+        date: transactions.date,
         itemId: transactions.itemId,
         amount: transactions.amount,
-        date: transactions.date,
       })
       .from(transactions)
       .where(
         and(
-          gte(transactions.date, new Date(startDate)),
-          lte(transactions.date, new Date(endDate)),
-          lt(transactions.amount, 0), // Hanya pengeluaran
-          inArray(transactions.itemId, itemIds) // Filter berdasarkan item yang dipilih
+          inArray(transactions.id, transactionIds),
+          lt(transactions.amount, 0)
         )
       );
 
-    if (relevantTransactions.length === 0) {
+    if (selectedTransactions.length === 0) {
       return NextResponse.json(
-        { message: 'No expense data to export for the selected items.' },
+        { message: 'No expense data to export for the selected transactions.' },
         { status: 404 }
       );
     }
 
-    // Ambil detail item yang dipilih
-    const selectedItems = await db
-      .select({ id: items.id, name: items.name })
+    const dates = selectedTransactions.map((t) => new Date(t.date));
+    const startDate = min(dates);
+    const endDate = max(dates);
+    const reportYear = getYear(startDate);
+    const anggaranHeader = `ANGGARAN ${reportYear}`;
+
+    // --- PERBAIKAN: Mendapatkan itemIds unik menggunakan JavaScript Set ---
+    const itemIds = [...new Set(selectedTransactions.map((t) => t.itemId))];
+
+    const selectedItemsWithCategory = await db
+      .select({
+        id: items.id,
+        name: items.name,
+        budget: categories.budget,
+      })
       .from(items)
+      .leftJoin(categories, eq(items.categoryId, categories.id))
       .where(inArray(items.id, itemIds))
       .orderBy(desc(items.id));
 
-    const itemMap = new Map(selectedItems.map((i) => [i.id, i.name]));
-    const monthsInRange = getMonthsInRange(
-      new Date(startDate),
-      new Date(endDate)
+    const itemMap = new Map(
+      selectedItemsWithCategory.map((i) => [
+        i.id,
+        { name: i.name, budget: i.budget },
+      ])
     );
+
+    const monthsInRange = getMonthsInRange(startDate, endDate);
     const monthHeaders = monthsInRange.map((d) =>
       format(d, 'MMMM', { locale: indonesiaLocale }).toUpperCase()
     );
 
     const reportData: { [key: string]: any } = {};
 
-    // Inisialisasi reportData berdasarkan item yang dipilih
-    for (const item of selectedItems) {
-      reportData[item.name] = { URAIAN: item.name };
+    for (const item of selectedItemsWithCategory) {
+      reportData[item.name] = {
+        URAIAN: item.name,
+        [anggaranHeader]: item.budget || 0,
+      };
       monthHeaders.forEach((header) => {
         reportData[item.name][header] = 0;
       });
     }
 
-    // Agregasi data transaksi
-    relevantTransactions.forEach((tx) => {
-      const itemName = itemMap.get(tx.itemId);
-      if (itemName) {
+    selectedTransactions.forEach((tx) => {
+      const itemInfo = itemMap.get(tx.itemId);
+      if (itemInfo) {
+        const itemName = itemInfo.name;
         const monthName = format(new Date(tx.date), 'MMMM', {
           locale: indonesiaLocale,
         }).toUpperCase();
@@ -130,7 +142,6 @@ export async function POST(request: NextRequest) {
     const wb = xlsx.utils.book_new();
     const wsData: any[][] = [];
 
-    // Styling (Sama seperti report sebelumnya)
     const fontArial = { name: 'Arial', sz: 11 };
     const borderAll = {
       top: { style: 'thin' },
@@ -160,20 +171,17 @@ export async function POST(request: NextRequest) {
       ...styleDataText,
       numFmt: '_(* #,##0_);_(* (#,##0);_(* "-"??_);_(@_)',
     };
+    const stylePercent = { ...styleDataText, numFmt: '0.00%' };
 
-    // Header
     wsData.push(['DEWAN KOMISARIS PT PLN (PERSERO)']);
     wsData.push(['LAPORAN PENGELUARAN BERDASARKAN ITEM']);
     wsData.push([
-      `Untuk Periode ${format(new Date(startDate), 'd MMMM', {
+      `Untuk Periode ${format(startDate, 'd MMMM', {
         locale: indonesiaLocale,
-      })} s.d. ${format(new Date(endDate), 'd MMMM yyyy', {
-        locale: indonesiaLocale,
-      })}`,
+      })} s.d. ${format(endDate, 'd MMMM yyyy', { locale: indonesiaLocale })}`,
     ]);
     wsData.push([]);
 
-    // Logic untuk header dinamis berdasarkan kuartal (sama seperti sebelumnya)
     const headerRow1: (string | null)[] = ['URAIAN'];
     const headerRow2: (string | null)[] = [null];
     const headerRow3: (string | null)[] = ['1'];
@@ -212,14 +220,17 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    headerRow1.push('TOTAL');
-    headerRow2.push(null);
-    headerRow3.push(String(++columnCounter));
-    totalColCount += 1;
+    headerRow1.push('TOTAL', anggaranHeader, '% REALISASI');
+    headerRow2.push(null, null, null);
+    headerRow3.push(
+      String(++columnCounter),
+      String(++columnCounter),
+      String(++columnCounter)
+    );
+    totalColCount += 3;
 
     wsData.push(headerRow1, headerRow2, headerRow3);
 
-    // Data rows
     Object.values(reportData).forEach((row) => {
       const dataRow: (string | number | null)[] = [row['URAIAN']];
       let total = 0;
@@ -236,13 +247,15 @@ export async function POST(request: NextRequest) {
           total += quarterTotal;
         }
       });
+      const budget = row[anggaranHeader];
       dataRow.push(total);
+      dataRow.push(budget);
+      dataRow.push(budget > 0 ? total / budget : 0);
       wsData.push(dataRow);
     });
 
     const ws = xlsx.utils.aoa_to_sheet(wsData);
 
-    // Merging cells (disesuaikan karena tidak ada kolom anggaran)
     ws['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: totalColCount - 1 } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: totalColCount - 1 } },
@@ -260,12 +273,12 @@ export async function POST(request: NextRequest) {
         currentCol += quarterMonths.length + 1;
       }
     });
-    ws['!merges'].push({
-      s: { r: 4, c: currentCol },
-      e: { r: 6, c: currentCol },
-    });
+    ws['!merges'].push(
+      { s: { r: 4, c: currentCol }, e: { r: 6, c: currentCol } },
+      { s: { r: 4, c: currentCol + 1 }, e: { r: 6, c: currentCol + 1 } },
+      { s: { r: 4, c: currentCol + 2 }, e: { r: 6, c: currentCol + 2 } }
+    );
 
-    // Apply styles
     ws['A1'].s = styleTitle;
     ws['A2'].s = styleTitle;
     ws['A3'].s = styleSubtitle;
@@ -280,7 +293,13 @@ export async function POST(request: NextRequest) {
       ws[xlsx.utils.encode_cell({ r: R, c: 0 })].s = styleDataText;
       for (let C = 1; C < totalColCount; C++) {
         const cellRef = xlsx.utils.encode_cell({ r: R, c: C });
-        if (ws[cellRef]) ws[cellRef].s = styleCurrency;
+        if (ws[cellRef]) {
+          if (C === totalColCount - 1) {
+            ws[cellRef].s = stylePercent;
+          } else {
+            ws[cellRef].s = styleCurrency;
+          }
+        }
       }
     }
 
